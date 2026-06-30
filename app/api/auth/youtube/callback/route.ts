@@ -49,7 +49,14 @@ export async function GET(request: Request) {
     });
     
     const ytData = await ytResponse.json();
-    
+
+    console.log('🔍 Channel info response:', JSON.stringify(ytData, null, 2));
+    console.log('🔍 Channel items count:', ytData.items?.length || 0);
+    console.log('🔍 Token info:', {
+      access_token: tokens.access_token ? 'present' : 'missing',
+      expires_in: tokens.expires_in,
+      scope: tokens.scope
+    });
     if (!ytData.items || ytData.items.length === 0) {
        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=no_channel`);
     }
