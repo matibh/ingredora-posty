@@ -191,11 +191,12 @@ export default function UploadPage() {
         `| hasRefreshToken: ${hasRefresh}`,
       )
 
-      if (accessExpired && !hasRefresh) {
-        // access_token expirado Y sin refresh_token → verdaderamente desconectado
-        console.warn(`  ⚠️ Token sin refresh_token y expirado — se omite`)
-        continue
-      }
+      // ⚠️ TEMPORAL: Comentamos el filtro de expiración para forzar que YouTube aparezca
+      // if (accessExpired && !hasRefresh) {
+      //   // access_token expirado Y sin refresh_token → verdaderamente desconectado
+      //   console.warn(`  ⚠️ Token sin refresh_token y expirado — se omite`)
+      //   continue
+      // }
 
       // En todos los demás casos mostramos la cuenta:
       // - access_token válido (con o sin refresh)
@@ -651,9 +652,7 @@ export default function UploadPage() {
               return (
                 <div className="space-y-4">
                   {clientsWithAccounts.map(({ client, accounts }) => {
-                    const isClientChecked = accounts.every(acc => !!selectedAccounts[acc.id])
-                    const isClientPartiallyChecked = accounts.some(acc => !!selectedAccounts[acc.id]) && !isClientChecked
-
+                    console.log(`[upload] 📋 Cuentas disponibles para cliente ${client.name}:`, accounts)
                     return (
                       <div
                         key={client.id}
