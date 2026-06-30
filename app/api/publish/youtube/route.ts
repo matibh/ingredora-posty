@@ -74,9 +74,7 @@ export async function POST(request: Request) {
         .eq('id', tokenRow.id)
 
       console.log('[publish/youtube] ✅ Token renovado y guardado. Nuevo expires_at:', newExpiresAt)
-      }
     }
-
     // 6. Marcar el job como "publicando"
     await supabase
       .from('jobs')
