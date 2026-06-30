@@ -72,6 +72,8 @@ export async function POST(request: Request) {
     }
 
     // 6. Responder con job_id y URL pública
+    console.log('[upload] ✅ Subida exitosa a Storage. URL:', publicUrl)
+    console.log('[upload] ✅ Job creado. ID:', job.id)
     return NextResponse.json({ success: true, job_id: job.id, videoUrl: publicUrl }, { status: 201 })
   } catch (error) {
     console.error('[upload] Unexpected error:', error)

@@ -294,7 +294,7 @@ export default function UploadPage() {
       const jobId = data.job_id
 
       // ── Paso 2: Identificar cuentas de YouTube seleccionadas ─────────────
-      // Buscar en los clientes qué tokens de YouTube están seleccionados
+      console.log('[upload page] ✅ Video subido a Storage. Job ID:', jobId)
       const youtubePublishes: Promise<Response>[] = []
 
       for (const client of clients) {
@@ -304,7 +304,7 @@ export default function UploadPage() {
             token.platform === 'youtube' &&
             activeAccountIds.includes(token.id)
           ) {
-            // Llamar a la API real de YouTube para este cliente
+            console.log(`[upload page] 🚀 Llamando a /api/publish/youtube para cliente: ${client.id}`)
             youtubePublishes.push(
               fetch('/api/publish/youtube', {
                 method:  'POST',
