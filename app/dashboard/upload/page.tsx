@@ -326,26 +326,38 @@ export default function UploadPage() {
       setProgress(65)
       const jobId = data.job_id
 
-      // ── Paso 2: Identificar cuentas de YouTube seleccionadas ─────────────
+      // ── Paso 2: Identificar cuentas seleccionadas ─────────────
       console.log('[upload page] ✅ Video subido a Storage. Job ID:', jobId)
-      const youtubePublishes: Promise<Response>[] = []
+      const publishPromises: Promise<Response>[] = []
 
       for (const client of clients) {
-        console.log(`[upload page] 🔍 Verificando cuentas de YouTube para cliente ${client.id}`)
+        console.log(`[upload page] 🔍 Verificando cuentas para cliente ${client.id}`)
         const clientAccounts = (client as any).client_social_accounts || []
         const tokens: any[] = (client as any).social_tokens || []
         
-        console.log(`[upload page] 🧾 Cuentas disponibles:`, clientAccounts)
-        console.log(`[upload page] 🧾 YouTube tokens:`, tokens)
+        console.log(`[upload page] 🧾 Cuentas genéricas disponibles:`, clientAccounts)
+        console.log(`[upload page] 🧾 Tokens (OAuth) disponibles:`, tokens)
 
+        // 1. Verificar Tokens OAuth (YouTube, etc)
         for (const token of tokens) {
-          if (
-            token.platform === 'youtube' &&
-            activeAccountIds.includes(token.id)
-          ) {
-            console.log(`[upload page] 🚀 Llamando a /api/publish/youtube para job ${jobId} y cliente ${client.id}`)
-            youtubePublishes.push(
-              fetch('/api/publish/youtube', {
+          if (activeAccountIds.includes(token.id)) {
+            console.log(`[upload page] 🚀 Llamando a /api/publish/${token.platform} para job ${jobId} y cliente ${client.id}`)
+            publishPromises.push(
+              fetch(`/api/publish/${token.platform}`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jobId, clientId: client.id }),
+              })
+            )
+          }
+        }
+
+        // 2. Verificar Cuentas Genéricas (Instagram, Facebook, etc)
+        for (const account of clientAccounts) {
+          if (activeAccountIds.includes(account.id)) {
+            console.log(`[upload page] 🚀 Llamando a /api/publish/${account.platform} para job ${jobId} y cliente ${client.id}`)
+            publishPromises.push(
+              fetch(`/api/publish/${account.platform}`, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ jobId, clientId: client.id }),
@@ -356,38 +368,37 @@ export default function UploadPage() {
       }
 
       // ── Paso 3: Publicar en paralelo ──────────────────────────────────────
-      if (youtubePublishes.length > 0) {
-        setProgress(75)
-        // Esperamos todas las peticiones a la API
-        const results = await Promise.all(youtubePublishes)
-        
-        // Verificar las respuestas
-        for (const r of results) {
-          const text = await r.text()
-          let errData
-          try {
-            errData = JSON.parse(text)
-          } catch (e) {
-            console.error('❌ La respuesta de /api/publish/youtube no es JSON válido:', text)
-            if (!r.ok) {
-              throw new Error(`Error del servidor (HTTP ${r.status}). Revisa los logs de Vercel.`)
-            }
-          }
-          
-          if (!r.ok) {
-            throw new Error(errData?.error ?? `Error publicando en YouTube (HTTP ${r.status})`)
+      if (publishPromises.length === 0) {
+        throw new Error('No se encontraron plataformas válidas seleccionadas para publicar.')
+      }
+
+      setProgress(75)
+      // Esperamos todas las peticiones a la API
+      const results = await Promise.all(publishPromises)
+      
+      // Verificar las respuestas
+      for (const r of results) {
+        const text = await r.text()
+        let errData
+        try {
+          errData = JSON.parse(text)
+        } catch (e) {
+          console.error('❌ La respuesta de /api/publish no es JSON válido:', text)
+          // Ignoramos HTML errors si status es 404 (ej. endpoint no implementado aún)
+          if (!r.ok && r.status !== 404) {
+            throw new Error(`Error del servidor (HTTP ${r.status}). Revisa los logs de Vercel.`)
           }
         }
-        setProgress(95)
-      } else {
-        // Si no hay YouTube seleccionado, fallback al publish genérico (simulación)
-        fetch('/api/publish', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ job_id: jobId, accounts: activeAccountIds }),
-        })
-        setProgress(90)
+        
+        if (!r.ok) {
+          // Si el endpoint no existe (404), lanzamos error custom amigable
+          if (r.status === 404) {
+            throw new Error('El método de publicación para esta plataforma aún no está implementado.')
+          }
+          throw new Error(errData?.error ?? `Error publicando (HTTP ${r.status})`)
+        }
       }
+      setProgress(95)
 
       setProgress(100)
       setTimeout(() => router.push(`/dashboard/jobs/${jobId}`), 400)
