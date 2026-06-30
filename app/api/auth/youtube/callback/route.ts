@@ -41,6 +41,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: tokens.error_description }, { status: 400 });
     }
 
+    console.log('✅ Tokens obtenidos de Google');
+    console.log('🔑 Access Token:', tokens.access_token ? 'presente' : 'FALTA');
+    console.log('🔑 Refresh Token:', tokens.refresh_token ? 'presente' : 'FALTA');
+    console.log('⏱️ Expira en:', tokens.expires_in);
+    console.log('📋 Scope:', tokens.scope);
+
+    console.log('📡 Llamando a YouTube API para obtener canal...');
+    console.log('🔑 Access Token usado:', tokens.access_token ? 'presente' : 'FALTA');
+
     // Obtener información del canal de YouTube
     const ytResponse = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', {
       headers: {
@@ -50,14 +59,12 @@ export async function GET(request: Request) {
     
     const ytData = await ytResponse.json();
 
-    console.log('🔍 Channel info response:', JSON.stringify(ytData, null, 2));
-    console.log('🔍 Channel items count:', ytData.items?.length || 0);
-    console.log('🔍 Token info:', {
-      access_token: tokens.access_token ? 'present' : 'missing',
-      expires_in: tokens.expires_in,
-      scope: tokens.scope
-    });
+    console.log('📡 Respuesta de YouTube API:', JSON.stringify(ytData, null, 2));
+    console.log('📊 Cantidad de items:', ytData.items?.length || 0);
+
     if (!ytData.items || ytData.items.length === 0) {
+       console.error('❌ No se encontró canal para esta cuenta');
+       console.error('🔍 Respuesta completa:', JSON.stringify(ytData));
        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=no_channel`);
     }
 
@@ -109,6 +116,7 @@ export async function GET(request: Request) {
     const cookieStoreDelete = await cookies();
     cookieStoreDelete.delete('youtube_connect_client_id');
 
+    console.log('✅ Callback completado exitosamente, redirigiendo...');
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?success=youtube_connected`);
   } catch (error) {
     console.error('Callback error:', error);
