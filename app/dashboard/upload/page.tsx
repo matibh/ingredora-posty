@@ -332,48 +332,48 @@ export default function UploadPage() {
       const publishPromises: Promise<Response>[] = []
 
       console.log('[upload] 🔍 selectedAccounts al inicio de handleSubmit:', selectedAccounts)
-      console.log('[upload] 🔍 selectedRef al inicio:', selectedRef.current)
       
-      // Reconstruir clientes seleccionados directamente desde el DOM (parche temporal)
-      const checkboxes = document.querySelectorAll('input[type="checkbox"][data-client-id]')
-      let selectedClientIds = Array.from(checkboxes)
-        .filter(cb => (cb as HTMLInputElement).checked)
-        .map(cb => (cb as HTMLInputElement).dataset.clientId)
-        .filter(Boolean) as string[]
+      const allAccounts = clients.flatMap(c => getClientAccounts(c))
+      const selectedAccountsList = Object.keys(selectedAccounts).filter(id => selectedAccounts[id])
+      
+      console.log('[upload] 📦 Cuentas seleccionadas:', selectedAccountsList)
 
-      // Respaldo con selectedRef si el DOM falló por alguna razón
-      if (selectedClientIds.length === 0) {
-        selectedClientIds = Object.keys(selectedRef.current).filter(id => selectedRef.current[id])
-      }
+      // Agrupar por cliente
+      const accountsByClient: Record<string, typeof allAccounts> = {}
+      selectedAccountsList.forEach(accountId => {
+        const account = allAccounts.find(a => a.id === accountId)
+        if (account) {
+          if (!accountsByClient[account.client_id]) {
+            accountsByClient[account.client_id] = []
+          }
+          accountsByClient[account.client_id].push(account)
+        }
+      })
 
-      console.log('[upload] 📦 IDs seleccionados desde el DOM:', selectedClientIds)
-
-      const clientsSelected = clients.filter(c => selectedClientIds.includes(c.id))
-      console.log('[upload] 📦 Reconstruidos clientes seleccionados:', clientsSelected)
-      console.log('[upload] 📦 Clientes con IDs:', clientsSelected.map(c => c.id))
-
-      for (const client of clientsSelected) {
-
-        const tokens: any[] = (client as any).social_tokens || []
-        const youtubeTokens = tokens.filter(t => t.platform === 'youtube')
+      // Para cada cliente, verificar si tiene YouTube seleccionado
+      for (const [clientId, accounts] of Object.entries(accountsByClient)) {
+        const hasYoutube = accounts.some(a => a.platform === 'youtube')
         
-        console.log('[upload] 📦 YouTube tokens del usuario:', youtubeTokens)
-        console.log(`[upload] Cliente ${client.name} (${client.id}) tiene YouTube:`, youtubeTokens.length > 0)
-        console.log(`[upload] YouTube tokens encontrados:`, youtubeTokens)
-
-        if (youtubeTokens.length === 0) {
-          throw new Error(`El cliente ${client.name} no tiene YouTube conectado.`)
+        console.log(`[upload] 📦 Clientes con YouTube (cliente ${clientId}):`, hasYoutube)
+        
+        if (!hasYoutube) {
+          const client = clients.find(c => c.id === clientId)
+          throw new Error(`El cliente ${client?.name || clientId} no tiene YouTube conectado o seleccionado.`)
         }
 
-        // Si tiene YouTube, llamamos a /api/publish/youtube
-        console.log('[upload] 🚀 Llamando a /api/publish/youtube con jobId:', jobId, 'y clientId:', client.id)
+        // Llamar a /api/publish/youtube con este clientId y el jobId
+        console.log(`[upload] 🚀 Llamando a /api/publish/youtube para cliente: ${clientId}`)
         publishPromises.push(
           fetch('/api/publish/youtube', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jobId, clientId: client.id }),
+            body: JSON.stringify({ jobId, clientId }),
           })
         )
+      }
+
+      if (publishPromises.length === 0) {
+        throw new Error('No se seleccionó ninguna cuenta para publicar.')
       }
 
       setProgress(75)
@@ -664,14 +664,14 @@ export default function UploadPage() {
                         <label className="flex items-center gap-3 cursor-pointer select-none pb-3 border-b border-[#334155]/40 mb-3">
                           <input
                             type="checkbox"
-                            data-client-id={client.id}
-                            checked={selectedAccounts[client.id] || false}
+                            checked={accounts.length > 0 && accounts.every(acc => selectedAccounts[acc.id])}
                             onChange={(e) => {
-                              console.log(`[upload] 🖱️ Checkbox ${client.id} (${client.name}) = ${e.target.checked}`)
-                              selectedRef.current = { ...selectedRef.current, [client.id]: e.target.checked }
+                              const isChecked = e.target.checked
                               setSelectedAccounts(prev => {
-                                const newState = { ...prev, [client.id]: e.target.checked }
-                                console.log('[upload] 📦 Nuevo selectedAccounts:', newState)
+                                const newState = { ...prev }
+                                accounts.forEach(acc => {
+                                  newState[acc.id] = isChecked
+                                })
                                 return newState
                               })
                             }}
@@ -690,7 +690,10 @@ export default function UploadPage() {
                               <input
                                 type="checkbox"
                                 checked={!!selectedAccounts[acc.id]}
-                                onChange={() => handleAccountToggle(acc.id)}
+                                onChange={(e) => {
+                                  const isChecked = e.target.checked
+                                  setSelectedAccounts(prev => ({ ...prev, [acc.id]: isChecked }))
+                                }}
                                 className="w-3.5 h-3.5 rounded accent-[#1A6B8A] flex-shrink-0"
                               />
                               <div className="min-w-0">
