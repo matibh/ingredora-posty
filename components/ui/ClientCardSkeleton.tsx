@@ -23,9 +23,9 @@ export function ClientCardSkeleton() {
 
       {/* Footer actions */}
       <div className="flex border-t border-[#334155]/60 mt-auto">
-        <Skeleton className="flex-1 h-10 rounded-none rounded-bl-2xl" style={{ borderRadius: '0 0 0 1rem' }} />
-        <div className="w-px bg-[#334155]/60" />
-        <Skeleton className="flex-1 h-10 rounded-none rounded-br-2xl" style={{ borderRadius: '0 0 1rem 0' }} />
+        <Skeleton className="flex-1 h-10 rounded-none rounded-bl-2xl" />
+        <div className="w-[1px] bg-[#334155]/40" />
+        <Skeleton className="flex-1 h-10 rounded-none rounded-br-2xl" />
       </div>
     </div>
   )
