@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -108,6 +108,7 @@ export default function UploadPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(true)
   const [selectedAccounts, setSelectedAccounts] = useState<Record<string, boolean>>({})
+  const selectedRef = useRef<Record<string, boolean>>({})
 
   // Fetch clients on load
   useEffect(() => {
@@ -330,14 +331,20 @@ export default function UploadPage() {
       console.log('[upload page] ✅ Video subido a Storage. Job ID:', jobId)
       const publishPromises: Promise<Response>[] = []
 
-      console.log('[upload] 🔍 selectedAccounts ANTES de reconstruir:', selectedAccounts)
+      console.log('[upload] 🔍 selectedAccounts al inicio de handleSubmit:', selectedAccounts)
+      console.log('[upload] 🔍 selectedRef al inicio:', selectedRef.current)
       
       // Reconstruir clientes seleccionados directamente desde el DOM (parche temporal)
       const checkboxes = document.querySelectorAll('input[type="checkbox"][data-client-id]')
-      const selectedClientIds = Array.from(checkboxes)
+      let selectedClientIds = Array.from(checkboxes)
         .filter(cb => (cb as HTMLInputElement).checked)
         .map(cb => (cb as HTMLInputElement).dataset.clientId)
         .filter(Boolean) as string[]
+
+      // Respaldo con selectedRef si el DOM falló por alguna razón
+      if (selectedClientIds.length === 0) {
+        selectedClientIds = Object.keys(selectedRef.current).filter(id => selectedRef.current[id])
+      }
 
       console.log('[upload] 📦 IDs seleccionados desde el DOM:', selectedClientIds)
 
@@ -660,10 +667,11 @@ export default function UploadPage() {
                             data-client-id={client.id}
                             checked={selectedAccounts[client.id] || false}
                             onChange={(e) => {
-                              console.log(`[upload] 🖱️ Cliente ${client.id} (${client.name}) marcado: ${e.target.checked}`)
+                              console.log(`[upload] 🖱️ Checkbox ${client.id} (${client.name}) = ${e.target.checked}`)
+                              selectedRef.current = { ...selectedRef.current, [client.id]: e.target.checked }
                               setSelectedAccounts(prev => {
                                 const newState = { ...prev, [client.id]: e.target.checked }
-                                console.log(`[upload] 📦 Nuevo estado de selectedAccounts:`, newState)
+                                console.log('[upload] 📦 Nuevo selectedAccounts:', newState)
                                 return newState
                               })
                             }}
