@@ -331,13 +331,19 @@ export default function UploadPage() {
       const youtubePublishes: Promise<Response>[] = []
 
       for (const client of clients) {
+        console.log(`[upload page] 🔍 Verificando cuentas de YouTube para cliente ${client.id}`)
+        const clientAccounts = (client as any).client_social_accounts || []
         const tokens: any[] = (client as any).social_tokens || []
+        
+        console.log(`[upload page] 🧾 Cuentas disponibles:`, clientAccounts)
+        console.log(`[upload page] 🧾 YouTube tokens:`, tokens)
+
         for (const token of tokens) {
           if (
             token.platform === 'youtube' &&
             activeAccountIds.includes(token.id)
           ) {
-            console.log(`[upload page] 🚀 Llamando a /api/publish/youtube para cliente: ${client.id}`)
+            console.log(`[upload page] 🚀 Llamando a /api/publish/youtube para job ${jobId} y cliente ${client.id}`)
             youtubePublishes.push(
               fetch('/api/publish/youtube', {
                 method:  'POST',
