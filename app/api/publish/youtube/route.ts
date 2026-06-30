@@ -4,6 +4,10 @@ import { uploadToYouTube, refreshYouTubeToken, mapPrivacyStatus } from '@/lib/yo
 
 export const maxDuration = 300 // 5 minutos — la subida de video puede tardar
 
+export async function OPTIONS() {
+  return NextResponse.json({}, { status: 200 })
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()

@@ -319,13 +319,24 @@ export default function UploadPage() {
       // ── Paso 3: Publicar en paralelo ──────────────────────────────────────
       if (youtubePublishes.length > 0) {
         setProgress(75)
-        // Esperamos todas las publicaciones de YouTube
+        // Esperamos todas las peticiones a la API
         const results = await Promise.all(youtubePublishes)
-        // Verificar si alguna falló
+        
+        // Verificar las respuestas
         for (const r of results) {
+          const text = await r.text()
+          let errData
+          try {
+            errData = JSON.parse(text)
+          } catch (e) {
+            console.error('❌ La respuesta de /api/publish/youtube no es JSON válido:', text)
+            if (!r.ok) {
+              throw new Error(`Error del servidor (HTTP ${r.status}). Revisa los logs de Vercel.`)
+            }
+          }
+          
           if (!r.ok) {
-            const errData = await r.json().catch(() => ({}))
-            throw new Error(errData.error ?? 'Error publicando en YouTube')
+            throw new Error(errData?.error ?? `Error publicando en YouTube (HTTP ${r.status})`)
           }
         }
         setProgress(95)
