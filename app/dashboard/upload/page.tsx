@@ -331,8 +331,16 @@ export default function UploadPage() {
       const publishPromises: Promise<Response>[] = []
 
       console.log('[upload] 🔍 selectedAccounts ANTES de reconstruir:', selectedAccounts)
-      // Reconstruir clientes seleccionados desde el estado de las cuentas
-      const selectedClientIds = Object.keys(selectedAccounts).filter(id => selectedAccounts[id])
+      
+      // Reconstruir clientes seleccionados directamente desde el DOM (parche temporal)
+      const checkboxes = document.querySelectorAll('input[type="checkbox"][data-client-id]')
+      const selectedClientIds = Array.from(checkboxes)
+        .filter(cb => (cb as HTMLInputElement).checked)
+        .map(cb => (cb as HTMLInputElement).dataset.clientId)
+        .filter(Boolean) as string[]
+
+      console.log('[upload] 📦 IDs seleccionados desde el DOM:', selectedClientIds)
+
       const clientsSelected = clients.filter(c => selectedClientIds.includes(c.id))
       console.log('[upload] 📦 Reconstruidos clientes seleccionados:', clientsSelected)
       console.log('[upload] 📦 Clientes con IDs:', clientsSelected.map(c => c.id))
@@ -649,6 +657,7 @@ export default function UploadPage() {
                         <label className="flex items-center gap-3 cursor-pointer select-none pb-3 border-b border-[#334155]/40 mb-3">
                           <input
                             type="checkbox"
+                            data-client-id={client.id}
                             checked={selectedAccounts[client.id] || false}
                             onChange={(e) => {
                               console.log(`[upload] 🖱️ Cliente ${client.id} (${client.name}) marcado: ${e.target.checked}`)
