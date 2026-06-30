@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Posty 🚀
 
-## Getting Started
+Posty es una herramienta diseñada para creadores de contenido que permite subir un video y publicarlo automáticamente en YouTube, Instagram, Facebook y TikTok con un solo clic.
 
-First, run the development server:
+## Características
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Publicación Directa Simultánea:** Sube tu video una sola vez y reprodúcelo en las 4 plataformas más importantes del mundo al mismo tiempo usando llamadas en paralelo.
+- **Rachas y Gamificación:** Mantén tu constancia con el sistema de rachas diarias para no perder el ritmo de publicación.
+- **Interfaz Limpia y Profesional:** Diseñada como un SaaS moderno, intuitivo y sin distracciones.
+- **Sin Dependencias Pesadas:** Todo el flujo se maneja desde el backend de Next.js conectando con las APIs oficiales, sin necesidad de procesar video del lado del servidor.
+
+## Stack Tecnológico
+
+- **Frontend:** Next.js 14, React, TailwindCSS.
+- **Autenticación y Base de Datos:** Supabase (Auth, Postgres, Storage).
+- **Despliegue:** Vercel.
+
+## Flujo de Trabajo
+
+1. **Subir:** El usuario arrastra un video en el dashboard.
+2. **Cola:** El video se sube a Supabase Storage y se crea un registro (`job`) en la base de datos con estado `pending`.
+3. **Publicar:** La API de publicación recoge el trabajo y las credenciales (OAuth) de las distintas plataformas y despacha llamadas en paralelo (`Promise.all`). El estado pasa a `publishing`.
+4. **Completado:** Una vez confirmadas las publicaciones, el estado cambia a `done` mostrando los links directos a las redes sociales del usuario.
+
+## Configuración de Supabase
+
+Para utilizar Posty, la tabla `jobs` debe tener la siguiente estructura mínima en Supabase:
+
+```sql
+CREATE TABLE public.jobs (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users NOT NULL,
+  video_url TEXT NOT NULL,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'publishing', 'done', 'error')),
+  error_message TEXT,
+  created_at timestamp with time zone DEFAULT now()
+);
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Ejecución Local
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Clona el repositorio.
+2. Copia `.env.example` a `.env.local` y agrega tus claves de Supabase.
+3. Instala las dependencias: `npm install`
+4. Levanta el entorno: `npm run dev`
+5. Abre [http://localhost:3000](http://localhost:3000)

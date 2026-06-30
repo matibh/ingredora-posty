@@ -1,17 +1,42 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
+  /* Paleta Posty - Dark Lujo Silencioso */
+  --color-deep:    #0B1E33; /* Contrastes de sección (Hero/Precios) */
+  --color-primary: #1A6B8A;
+  --color-accent:  #7AD0E8; /* Solo para brillos/glows o dots diminutos */
+  --color-bg:      #181E26; /* Lienzo oscuro principal */
+  --color-surface: #232B36; /* Tarjetas y contenedores internos */
+  --color-heading: #F0F4F8; /* Títulos (Blanco humo) */
+  --color-body:    #A8B8C8; /* Párrafos (Gris azulado) */
+  --color-muted:   #6A7E94; /* Textos secundarios */
+  --color-border:  #334155; /* Gris pizarra sólido (Estructura visible) */
+
+  --background: var(--color-bg);
+  --foreground: var(--color-body);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
+  
+  /* Sombras de levitación negra para Dark Mode */
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-muted); border-radius: 9999px; }

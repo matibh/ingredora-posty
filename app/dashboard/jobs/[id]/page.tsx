@@ -5,78 +5,31 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-type JobStatus = 'pending' | 'processing' | 'done' | 'error'
+type JobStatus = 'pending' | 'publishing' | 'done' | 'error'
 
 interface Job {
   id: string
   status: JobStatus
-  template: string
-  overlay_text: string
-  input_video_path: string
-  output_video_url: string | null
+  video_url: string
+  title: string | null
   error_message: string | null
   created_at: string
+  platform_video_id: string | null
 }
 
-const STATUS_CONFIG: Record<JobStatus, {
-  label: string
-  color: string
-  bg: string
-  icon: React.ReactNode
-  progress: number
-}> = {
-  pending: {
-    label: 'En cola',
-    color: 'text-amber-700',
-    bg: 'bg-amber-50 border-amber-200',
-    progress: 15,
-    icon: (
-      <svg className="w-5 h-5 animate-pulse text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-      </svg>
-    ),
-  },
-  processing: {
-    label: 'Renderizando',
-    color: 'text-blue-700',
-    bg: 'bg-blue-50 border-blue-200',
-    progress: 60,
-    icon: (
-      <svg className="w-5 h-5 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-      </svg>
-    ),
-  },
-  done: {
-    label: 'Completado',
-    color: 'text-green-700',
-    bg: 'bg-green-50 border-green-200',
-    progress: 100,
-    icon: (
-      <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-      </svg>
-    ),
-  },
-  error: {
-    label: 'Error',
-    color: 'text-red-700',
-    bg: 'bg-red-50 border-red-200',
-    progress: 100,
-    icon: (
-      <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-      </svg>
-    ),
-  },
+const STATUS_CFG: Record<JobStatus, { label: string; bg: string; text: string; dot: string; progress: number }> = {
+  pending:    { label: 'En cola',           bg: 'rgba(148,163,184,0.15)', text: '#94A3B8', dot: '#94A3B8', progress: 10 },
+  publishing: { label: 'Publicando en redes', bg: 'rgba(59,130,246,0.15)', text: '#60A5FA', dot: '#3B82F6', progress: 55 },
+  done:       { label: 'Publicado con éxito', bg: 'rgba(34,197,94,0.15)', text: '#4ADE80', dot: '#22C55E', progress: 100 },
+  error:      { label: 'Error en publicación', bg: 'rgba(239,68,68,0.15)', text: '#F87171', dot: '#EF4444', progress: 100 },
 }
 
-const TEMPLATE_NAMES: Record<string, string> = {
-  classic: 'Clásico Profesional',
-  modern: 'Impacto Moderno',
-  cooling_break: 'Cooling Break',
-}
+const SOCIALS = [
+  { key: 'youtube',   label: 'YouTube',   dot: '#EF4444', icon: 'Y' },
+  { key: 'instagram', label: 'Instagram', dot: '#EC4899', icon: 'I' },
+  { key: 'facebook',  label: 'Facebook',  dot: '#3B82F6', icon: 'F' },
+  { key: 'tiktok',    label: 'TikTok',    dot: '#94A3B8', icon: 'T' },
+]
 
 export default function JobStatusPage() {
   const { id } = useParams<{ id: string }>()
@@ -88,60 +41,33 @@ export default function JobStatusPage() {
     const supabase = createClient()
 
     async function fetchJob() {
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('*')
-        .eq('id', id)
-        .single()
-
-      if (error || !data) {
-        setNotFound(true)
-        setLoading(false)
-        return
-      }
-
+      const { data, error } = await supabase.from('jobs').select('*').eq('id', id).single()
+      if (error || !data) { setNotFound(true); setLoading(false); return }
       setJob(data as Job)
       setLoading(false)
     }
 
-    // Initial fetch
     fetchJob()
 
-    // Subscribe to real-time updates
     const channel = supabase
       .channel(`job-${id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'jobs',
-          filter: `id=eq.${id}`,
-        },
-        (payload) => {
-          setJob(payload.new as Job)
-        }
-      )
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'jobs', filter: `id=eq.${id}` },
+        payload => setJob(payload.new as Job))
       .subscribe()
 
-    // Polling fallback every 5s for environments without realtime
-    const interval = setInterval(fetchJob, 5000)
-
-    return () => {
-      supabase.removeChannel(channel)
-      clearInterval(interval)
-    }
+    const interval = setInterval(fetchJob, 3000)
+    return () => { supabase.removeChannel(channel); clearInterval(interval) }
   }, [id])
 
   if (loading) {
     return (
-      <div className="flex-1 bg-slate-50 flex items-center justify-center min-h-[60vh]">
+      <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: '#181E26', minHeight: '60vh' }}>
         <div className="flex flex-col items-center gap-4">
-          <svg className="w-10 h-10 text-blue-600 animate-spin" fill="none" viewBox="0 0 24 24">
+          <svg className="w-10 h-10 animate-spin" style={{ color: '#1A6B8A' }} fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
           </svg>
-          <p className="text-slate-600 font-medium">Cargando estado del trabajo...</p>
+          <p className="font-medium" style={{ color: '#A8B8C8' }}>Cargando publicación…</p>
         </div>
       </div>
     )
@@ -149,16 +75,19 @@ export default function JobStatusPage() {
 
   if (notFound || !job) {
     return (
-      <div className="flex-1 bg-slate-50 flex items-center justify-center min-h-[60vh]">
-        <div className="text-center bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: '#181E26', minHeight: '60vh' }}>
+        <div
+          className="text-center p-8 rounded-3xl shadow-md"
+          style={{ backgroundColor: '#232B36', border: '1px solid #334155' }}
+        >
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border" style={{ backgroundColor: '#181E26', borderColor: '#334155' }}>
+            <svg className="w-8 h-8" style={{ color: '#1A6B8A' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Trabajo no encontrado</h2>
-          <p className="text-slate-500 mb-6">No pudimos encontrar el trabajo que estás buscando.</p>
-          <Link href="/dashboard" className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 transition-colors">
+          <h2 className="text-xl font-bold mb-2 tracking-tight" style={{ color: '#F0F4F8' }}>Publicación no encontrada</h2>
+          <p className="mb-6 text-sm leading-relaxed" style={{ color: '#A8B8C8' }}>No pudimos encontrar este trabajo.</p>
+          <Link href="/dashboard" className="inline-flex items-center justify-center px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 shadow-md hover:shadow-lg" style={{ backgroundColor: '#1A6B8A' }}>
             Volver al dashboard
           </Link>
         </div>
@@ -166,170 +95,188 @@ export default function JobStatusPage() {
     )
   }
 
-  const statusCfg = STATUS_CONFIG[job.status]
+  const s = STATUS_CFG[job.status]
 
   return (
-    <div className="flex-1 bg-slate-50">
-      <main className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-10">
+    <div className="flex-1" style={{ backgroundColor: '#181E26' }}>
+      <main className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-12">
+
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm text-slate-500 mb-6">
-          <Link href="/dashboard" className="hover:text-blue-600 transition-colors">
-            Dashboard
-          </Link>
-          <svg className="w-4 h-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-          <span className="font-medium text-slate-900">Estado del trabajo</span>
+        <nav className="flex items-center gap-2 text-sm mb-8" style={{ color: '#6A7E94' }}>
+          <Link href="/dashboard" className="font-medium transition-colors" style={{ color: '#6A7E94' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = '#F0F4F8'}
+            onMouseLeave={(e) => e.currentTarget.style.color = '#6A7E94'}
+          >Dashboard</Link>
+          <span className="opacity-50">/</span>
+          <span className="font-semibold" style={{ color: '#F0F4F8' }}>Estado de publicación</span>
         </nav>
 
-        {/* Status card */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">Detalles de renderizado</h1>
-              <p className="text-slate-500 text-sm mt-1 font-mono break-all">{job.id}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+
+          {/* ── Estado ──────────────────────────────────────────── */}
+          <div className="space-y-8">
+            <div className="p-8 rounded-3xl shadow-md" style={{ backgroundColor: '#232B36', border: '1px solid #334155' }}>
+
+              {/* Badge de estado */}
+              <div className="flex flex-col gap-2 mb-10">
+                <h1 className="text-2xl font-extrabold tracking-tighter" style={{ color: '#F0F4F8' }}>Estado de distribución</h1>
+                <p className="text-xs font-mono" style={{ color: '#6A7E94' }}>{job.id}</p>
+                <div
+                  className="self-start inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold mt-2 border"
+                  style={{ backgroundColor: s.bg, color: s.text, borderColor: s.text, backdropFilter: 'blur(8px)' }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{
+                      backgroundColor: s.dot,
+                      animation: job.status === 'publishing' ? 'pulse 1.5s infinite' : 'none',
+                    }}
+                  />
+                  {s.label}
+                </div>
+              </div>
+
+              {/* Barra de progreso */}
+              <div className="mb-10">
+                <div className="flex justify-between text-sm font-bold mb-3 tracking-tight" style={{ color: '#F0F4F8' }}>
+                  <span>Progreso</span>
+                  <span style={{ color: '#1A6B8A' }}>{s.progress}%</span>
+                </div>
+                <div className="h-3 rounded-full overflow-hidden border" style={{ backgroundColor: '#181E26', borderColor: '#334155' }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-1000 ease-out"
+                    style={{
+                      width: `${s.progress}%`,
+                      backgroundColor: job.status === 'error' ? '#EF4444' : job.status === 'done' ? '#22C55E' : '#1A6B8A',
+                    }}
+                  />
+                </div>
+                {/* Steps */}
+                <div className="flex justify-between mt-4">
+                  {[
+                    { label: 'Subido', done: true },
+                    { label: 'Distribuyendo', done: job.status !== 'pending' },
+                    { label: 'Completado', done: job.status === 'done' },
+                  ].map((step, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2">
+                      <div
+                        className="w-3.5 h-3.5 rounded-full border-2 transition-colors duration-500"
+                        style={{
+                          backgroundColor: step.done ? '#1A6B8A' : '#181E26',
+                          borderColor: step.done ? '#1A6B8A' : '#334155',
+                        }}
+                      />
+                      <span className="text-xs font-semibold" style={{ color: step.done ? '#F0F4F8' : '#6A7E94' }}>
+                        {step.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Fecha */}
+              <div className="pt-6 border-t" style={{ borderColor: '#334155' }}>
+                <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6A7E94' }}>Inicio</p>
+                <p className="font-semibold" style={{ color: '#F0F4F8' }}>
+                  {new Date(job.created_at).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'medium' })}
+                </p>
+              </div>
+
+              {/* Error message */}
+              {job.status === 'error' && job.error_message && (
+                <div className="mt-6 p-5 rounded-2xl text-sm border shadow-sm" style={{ backgroundColor: 'rgba(239,68,68,0.1)', borderColor: '#EF4444', color: '#F87171' }}>
+                  <p className="font-bold mb-1">Problema durante la distribución</p>
+                  <p className="leading-relaxed">{job.error_message}</p>
+                </div>
+              )}
+
+              {/* Info mensaje */}
+              {(job.status === 'pending' || job.status === 'publishing') && (
+                <div className="mt-6 p-5 rounded-2xl text-sm leading-relaxed border shadow-sm" style={{ backgroundColor: '#181E26', borderColor: '#334155', color: '#A8B8C8' }}>
+                  {job.status === 'pending'
+                    ? 'Tu video se ha subido correctamente. Iniciando distribución a las redes conectadas...'
+                    : 'Subiendo tu video a YouTube. Esto puede tardar unos segundos dependiendo del tamaño del archivo.'}
+                </div>
+              )}
             </div>
-            <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-semibold shadow-sm ${statusCfg.bg} ${statusCfg.color}`}>
-              {statusCfg.icon}
-              {statusCfg.label}
-            </div>
+
+            {/* Plataformas */}
+            {job.status === 'done' && (
+              <div className="p-8 rounded-3xl shadow-md" style={{ backgroundColor: '#232B36', border: '1px solid #334155' }}>
+                <h3 className="text-lg font-bold mb-5 tracking-tight" style={{ color: '#F0F4F8' }}>Publicado en</h3>
+                <div className="flex flex-col gap-3">
+                  {/* YouTube — con enlace real si hay platform_video_id */}
+                  {job.platform_video_id ? (
+                    <a
+                      href={`https://www.youtube.com/watch?v=${job.platform_video_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                      style={{ backgroundColor: '#181E26', border: '1px solid #EF444440' }}
+                    >
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm flex-shrink-0 shadow-md" style={{ backgroundColor: '#EF4444' }}>
+                        Y
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold" style={{ color: '#F0F4F8' }}>YouTube</p>
+                        <p className="text-xs font-mono truncate" style={{ color: '#A8B8C8' }}>youtu.be/{job.platform_video_id}</p>
+                      </div>
+                      <svg className="w-4 h-4 flex-shrink-0" style={{ color: '#EF4444' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  ) : (
+                    <div
+                      className="flex items-center gap-3 p-4 rounded-xl opacity-50"
+                      style={{ backgroundColor: '#181E26', border: '1px solid #334155' }}
+                    >
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm flex-shrink-0" style={{ backgroundColor: '#EF4444' }}>Y</div>
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: '#F0F4F8' }}>YouTube</p>
+                        <p className="text-xs" style={{ color: '#6A7E94' }}>No se publicó en YouTube</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Progress bar */}
-          <div className="mb-10 bg-slate-50 p-6 rounded-xl border border-slate-100">
-            <div className="flex justify-between text-sm font-medium text-slate-700 mb-3">
-              <span>Progreso general</span>
-              <span>{statusCfg.progress}%</span>
-            </div>
-            <div className="h-3 bg-slate-200 rounded-full overflow-hidden shadow-inner">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ease-out ${
-                  job.status === 'error'
-                    ? 'bg-red-500'
-                    : job.status === 'done'
-                    ? 'bg-green-500'
-                    : 'bg-blue-600'
-                }`}
-                style={{ width: `${statusCfg.progress}%` }}
+          {/* ── Video Preview ────────────────────────────────────── */}
+          <div className="space-y-6">
+            <h3 className="text-lg font-bold tracking-tight" style={{ color: '#F0F4F8' }}>Video original</h3>
+            <div
+              className="rounded-3xl overflow-hidden shadow-lg"
+              style={{ border: '1px solid #334155', backgroundColor: '#0B1E33' }}
+            >
+              <video
+                src={job.video_url}
+                className="w-full object-contain opacity-80"
+                style={{ maxHeight: '420px' }}
+                controls
+                playsInline
               />
             </div>
 
-            {/* Steps */}
-            <div className="flex justify-between mt-4">
-              {[
-                { label: 'En cola', done: true },
-                { label: 'Procesando', done: job.status !== 'pending' },
-                { label: 'Completado', done: job.status === 'done' },
-              ].map((step, i) => (
-                <div key={i} className="flex flex-col items-center gap-1.5">
-                  <div className={`w-3 h-3 rounded-full shadow-sm border-2 ${step.done ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-slate-300'}`} />
-                  <span className={`text-xs font-medium ${step.done ? 'text-slate-900' : 'text-slate-400'}`}>
-                    {step.label}
-                  </span>
-                </div>
-              ))}
+            <div className="flex gap-4 pt-2">
+              <Link
+                href="/dashboard/upload"
+                className="flex-1 text-center py-3.5 rounded-xl text-sm font-bold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md border"
+                style={{ backgroundColor: '#232B36', color: '#1A6B8A', borderColor: '#334155' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#334155' }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#232B36' }}
+              >
+                Subir nuevo video
+              </Link>
+              <Link
+                href="/dashboard"
+                className="flex-1 text-center py-3.5 rounded-xl text-sm font-bold transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                style={{ backgroundColor: '#1A6B8A', color: 'white', border: '1px solid #1A6B8A' }}
+              >
+                Ver Dashboard
+              </Link>
             </div>
           </div>
-
-          {/* Details grid */}
-          <h3 className="text-lg font-bold text-slate-900 mb-4">Configuración</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-              <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Template elegido</p>
-              <p className="text-slate-900 font-medium">{TEMPLATE_NAMES[job.template] ?? job.template}</p>
-            </div>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-              <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Fecha de creación</p>
-              <p className="text-slate-900 font-medium">
-                {new Date(job.created_at).toLocaleString('es-AR', {
-                  dateStyle: 'short',
-                  timeStyle: 'short',
-                })}
-              </p>
-            </div>
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 sm:col-span-2">
-              <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">Texto del overlay</p>
-              <p className="text-slate-900 font-medium">{job.overlay_text}</p>
-            </div>
-          </div>
-
-          {/* Error message */}
-          {job.status === 'error' && job.error_message && (
-            <div className="flex items-start gap-3 px-5 py-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm mb-8 shadow-sm">
-              <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-              <div>
-                <p className="font-bold mb-1">El renderizado ha fallado</p>
-                <p>{job.error_message}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Output video */}
-          {job.status === 'done' && job.output_video_url && (
-            <div className="space-y-4 mb-8">
-              <h3 className="text-lg font-bold text-slate-900">Resultado</h3>
-              <div className="rounded-xl overflow-hidden shadow-md border border-slate-200 bg-slate-900">
-                <video
-                  src={job.output_video_url}
-                  className="w-full aspect-video object-contain"
-                  controls
-                  playsInline
-                />
-              </div>
-              <div className="flex justify-end">
-                <a
-                  href={job.output_video_url}
-                  download
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold
-                    bg-green-600 text-white hover:bg-green-700 transition-colors shadow-sm"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  Descargar video final
-                </a>
-              </div>
-            </div>
-          )}
-
-          {/* Pending/Processing message */}
-          {(job.status === 'pending' || job.status === 'processing') && (
-            <div className="text-center py-6 bg-blue-50 border border-blue-100 rounded-xl mt-4">
-              <p className="text-blue-800 font-medium">
-                {job.status === 'pending'
-                  ? 'Tu video está en cola. El proceso de renderizado comenzará automáticamente.'
-                  : 'Nuestros servidores están aplicando tu template. Esto puede tomar unos minutos.'}
-              </p>
-              <p className="text-blue-600/70 text-sm mt-1">
-                Puedes dejar esta página abierta o volver más tarde; el proceso continuará en segundo plano.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex flex-wrap gap-4 mt-8">
-          <Link
-            href="/dashboard/upload"
-            className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition-colors shadow-sm"
-          >
-            <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Crear otro video
-          </Link>
-          <Link
-            href="/dashboard"
-            className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition-colors shadow-sm"
-          >
-            <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            Volver al Dashboard
-          </Link>
         </div>
       </main>
     </div>
