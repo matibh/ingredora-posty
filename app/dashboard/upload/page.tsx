@@ -330,28 +330,13 @@ export default function UploadPage() {
       console.log('[upload page] ✅ Video subido a Storage. Job ID:', jobId)
       const publishPromises: Promise<Response>[] = []
 
-      // Extraemos los IDs de los clientes únicos que tienen alguna cuenta seleccionada
-      const activeClientIds = Array.from(new Set(
-        activeAccountIds.map(accId => {
-          // Buscamos a qué cliente pertenece esta cuenta
-          for (const client of clients) {
-            const generic = (client as any).client_social_accounts || []
-            const tokens = (client as any).social_tokens || []
-            if (generic.some((g: any) => g.id === accId) || tokens.some((t: any) => t.id === accId)) {
-              return client.id
-            }
-          }
-          return null
-        }).filter(Boolean)
-      ))
+      // Reconstruir clientes seleccionados desde el estado de las cuentas
+      const selectedClientIds = Object.keys(selectedAccounts).filter(id => selectedAccounts[id])
+      const clientsSelected = clients.filter(c => selectedClientIds.includes(c.id))
+      console.log('[upload] 📦 Reconstruidos clientes seleccionados:', clientsSelected)
+      console.log('[upload] 📦 Clientes con IDs:', clientsSelected.map(c => c.id))
 
-      const selectedClients = activeClientIds.map(id => clients.find(c => c.id === id)).filter(Boolean)
-      console.log('[upload] 📦 Clientes seleccionados:', selectedClients)
-      console.log('[upload] 📦 Clientes con IDs:', selectedClients.map(c => c?.id))
-
-      for (const clientId of activeClientIds) {
-        const client = clients.find(c => c.id === clientId)
-        if (!client) continue
+      for (const client of clientsSelected) {
 
         const tokens: any[] = (client as any).social_tokens || []
         const youtubeTokens = tokens.filter(t => t.platform === 'youtube')
@@ -663,9 +648,11 @@ export default function UploadPage() {
                         <label className="flex items-center gap-3 cursor-pointer select-none pb-3 border-b border-[#334155]/40 mb-3">
                           <input
                             type="checkbox"
-                            checked={isClientChecked}
-                            ref={el => { if (el) el.indeterminate = isClientPartiallyChecked }}
-                            onChange={() => handleClientToggle(client)}
+                            checked={selectedAccounts[client.id] || false}
+                            onChange={(e) => setSelectedAccounts({
+                              ...selectedAccounts,
+                              [client.id]: e.target.checked
+                            })}
                             className="w-4 h-4 rounded accent-[#1A6B8A]"
                           />
                           <span className="text-sm font-bold text-[#F0F4F8]">{client.name}</span>
