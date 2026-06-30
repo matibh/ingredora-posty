@@ -62,6 +62,11 @@ export async function GET(request: Request) {
     console.log('📡 Respuesta de YouTube API:', JSON.stringify(ytData, null, 2));
     console.log('📊 Cantidad de items:', ytData.items?.length || 0);
 
+    if (ytData.error?.status === 'PERMISSION_DENIED' && ytData.error?.details?.[0]?.reason === 'ACCESS_TOKEN_SCOPE_INSUFFICIENT') {
+      console.error('❌ El token no tiene permisos suficientes para leer el canal. Faltan scopes de lectura.');
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=insufficient_scope`);
+    }
+
     if (!ytData.items || ytData.items.length === 0) {
        console.error('❌ No se encontró canal para esta cuenta');
        console.error('🔍 Respuesta completa:', JSON.stringify(ytData));
