@@ -119,12 +119,12 @@ export default function UploadPage() {
           const data: Client[] = await res.json()
 
           // ── DEBUG ─────────────────────────────────────────────────
-          console.log('--- UPLOAD PAGE DEBUG ---')
-          console.log('Clients encontrados:', data.length)
-          data.forEach((c, i) => {
-            console.log(`\n[Cliente ${i + 1}] ${c.name} (id: ${c.id})`)
-            console.log('  client_social_accounts:', c.client_social_accounts?.length ?? 0, c.client_social_accounts)
-            console.log('  social_tokens:', (c as any).social_tokens?.length ?? 0, (c as any).social_tokens)
+          console.log('[upload] 🔍 Clientes completos:', data)
+          data.forEach(client => {
+            console.log(`[upload] 🔍 Cliente ${client.name} (${client.id}):`)
+            console.log(`[upload] 🔍   client_social_accounts:`, client.client_social_accounts)
+            console.log(`[upload] 🔍   social_tokens:`, (client as any).social_tokens)
+            // Lógica aplazada porque getClientAccounts aún no está en scope, lo vemos abajo
           })
           if (data.length === 0) {
             console.log('⚠️ No se encontraron clientes para este usuario')
@@ -191,12 +191,12 @@ export default function UploadPage() {
         `| hasRefreshToken: ${hasRefresh}`,
       )
 
-      // ⚠️ TEMPORAL: Comentamos el filtro de expiración para forzar que YouTube aparezca
-      // if (accessExpired && !hasRefresh) {
-      //   // access_token expirado Y sin refresh_token → verdaderamente desconectado
-      //   console.warn(`  ⚠️ Token sin refresh_token y expirado — se omite`)
-      //   continue
-      // }
+      // ⚠️ Asegurar que se incluyen los tokens si tienen refresh_token,
+      // incluso si están expirados.
+      if (accessExpired && !hasRefresh) {
+        console.warn(`  ⚠️ Token sin refresh_token y expirado — se omite`)
+        continue
+      }
 
       // En todos los demás casos mostramos la cuenta:
       // - access_token válido (con o sin refresh)
@@ -337,7 +337,17 @@ export default function UploadPage() {
       const allAccounts = clients.flatMap(c => getClientAccounts(c))
       const selectedAccountsList = Object.keys(selectedAccounts).filter(id => selectedAccounts[id])
       
+      console.log('[upload] 🚀 handleSubmit: selectedAccounts =', selectedAccounts)
+      console.log('[upload] 🚀 handleSubmit: keys =', Object.keys(selectedAccounts))
       console.log('[upload] 📦 Cuentas seleccionadas:', selectedAccountsList)
+      
+      // Si hay cuentas seleccionadas, mostrar sus detalles
+      Object.keys(selectedAccounts).forEach(id => {
+        if (selectedAccounts[id]) {
+          const account = allAccounts.find(a => a.id === id)
+          console.log(`[upload] 🚀 Cuenta seleccionada ${id}:`, account)
+        }
+      })
 
       // Agrupar por cliente
       const accountsByClient: Record<string, typeof allAccounts> = {}
@@ -605,7 +615,25 @@ export default function UploadPage() {
 
           {/* Selector de Clientes y Cuentas */}
           <div className="border-t border-[#334155] pt-6">
-            <h3 className="text-lg font-bold mb-4 text-[#F0F4F8]">Selecciona los destinatarios</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-[#F0F4F8]">Selecciona los destinatarios</h3>
+              
+              {/* Botón Debug */}
+              <button
+                type="button"
+                onClick={() => {
+                  console.log('[debug] selectedAccounts:', selectedAccounts)
+                  const allAccs = clients.flatMap(c => getClientAccounts(c))
+                  console.log('[debug] allAccounts:', allAccs)
+                  console.log('[debug] getClientAccounts para cada cliente:')
+                  clients.forEach(c => console.log(c.name, getClientAccounts(c)))
+                }}
+                className="px-3 py-1 rounded bg-[#334155] text-xs font-bold text-white hover:bg-[#1A6B8A] transition-colors"
+              >
+                Debug
+              </button>
+            </div>
+            
             {loadingClients ? (
               <div className="space-y-3">
                 {[1, 2].map(i => (
