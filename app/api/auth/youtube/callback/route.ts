@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     console.log('🔑 Access Token:', tokens.access_token ? 'presente' : 'FALTA');
     console.log('🔑 Refresh Token:', tokens.refresh_token ? 'presente' : 'FALTA');
     console.log('⏱️ Expira en:', tokens.expires_in);
-    console.log('📋 Scope:', tokens.scope);
+    console.log('🔑 Scope del token recibido:', tokens.scope);
 
     console.log('📡 Llamando a YouTube API para obtener canal...');
     console.log('🔑 Access Token usado:', tokens.access_token ? 'presente' : 'FALTA');
