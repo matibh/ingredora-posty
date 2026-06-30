@@ -14,40 +14,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
-    // 2. Obtener los datos del formulario (ahora solo el video y datos opcionales)
-    const formData = await request.formData()
-    const video = formData.get('video') as File
-    const title = formData.get('title') as string | null
-    const description = formData.get('description') as string | null
-    const tags = formData.get('tags') as string | null
-    const privacy = formData.get('privacy') as string | null
+    // 2. Obtener los datos del JSON
+    const body = await request.json()
+    const { videoUrl, title, description, tags, privacy } = body
 
-    if (!video || !(video instanceof File)) {
-      return NextResponse.json({ error: 'No se envió ningún video' }, { status: 400 })
+    if (!videoUrl) {
+      return NextResponse.json({ error: 'Falta la URL del video' }, { status: 400 })
     }
 
-    // 3. Subir el video a Supabase Storage
-    // const fileExt = video.name.split('.').pop()
-    const sanitizedName = video.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const fileName = `${Date.now()}_${sanitizedName}`
-    const filePath = `videos/${user.id}/${fileName}`
-
-    const videoBuffer = await video.arrayBuffer()
-
-    const { error: uploadError } = await supabase.storage
-      .from('videos')
-      .upload(filePath, videoBuffer, {
-        contentType: video.type || 'video/mp4',
-        upsert: false,
-      })
-
-    if (uploadError) {
-      console.error('[upload] Storage error:', uploadError)
-      return NextResponse.json({ error: 'Error al subir el video' }, { status: 500 })
-    }
-
-    // 4. Obtener la URL pública del video
-    const { data: { publicUrl } } = supabase.storage.from('videos').getPublicUrl(filePath)
+    const publicUrl = videoUrl
 
     // 5. Crear el trabajo en la tabla jobs (ahora simplificada)
     const { data: job, error: jobError } = await supabase
@@ -66,8 +41,6 @@ export async function POST(request: Request) {
 
     if (jobError) {
       console.error('[upload] Job insert error:', jobError)
-      // Intentar limpiar el archivo subido en caso de error
-      await supabase.storage.from('videos').remove([filePath])
       return NextResponse.json({ error: 'Error al crear el trabajo de publicación' }, { status: 500 })
     }
 

@@ -275,20 +275,53 @@ export default function UploadPage() {
     setProgress(10)
 
     try {
-      // ── Paso 1: Subir video a Supabase Storage ──────────────────────────
-      const formData = new FormData()
-      formData.append('video', videoFile)
-      formData.append('title', title)
-      formData.append('description', description)
-      formData.append('tags', tags)
-      formData.append('privacy', privacy)
-
+      // ── Paso 1: Subir video a Supabase Storage (Subida directa al cliente) ──────────────────────────
       const interval = setInterval(() => setProgress(p => Math.min(p + 5, 60)), 600)
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      
+      console.log('[upload page] 1. Obteniendo URL prefirmada...')
+      const urlRes = await fetch('/api/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: videoFile.name, fileType: videoFile.type })
+      })
+      const urlData = await urlRes.json()
+      if (!urlRes.ok) {
+        clearInterval(interval)
+        throw new Error(urlData.error ?? 'Error al obtener URL de subida.')
+      }
+      
+      console.log('[upload page] 2. Subiendo video directamente a Supabase...')
+      const uploadRes = await fetch(urlData.uploadUrl, {
+        method: 'PUT',
+        body: videoFile,
+        headers: { 'Content-Type': videoFile.type }
+      })
+      
+      if (!uploadRes.ok) {
+        clearInterval(interval)
+        throw new Error('Error al subir el video a Supabase Storage.')
+      }
+
+      // Obtener el ID del proyecto de la variable de entorno NEXT_PUBLIC_SUPABASE_URL
+      // URL típica: https://qraapmleuafdvvhnslvh.supabase.co
+      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${urlData.filePath}`
+      
+      console.log('[upload page] 3. Creando job...')
+      const res = await fetch('/api/upload', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description,
+          tags,
+          privacy,
+          videoUrl: publicUrl
+        })
+      })
       clearInterval(interval)
 
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Error al subir el video.')
+      if (!res.ok) throw new Error(data.error ?? 'Error al registrar el video.')
 
       setProgress(65)
       const jobId = data.job_id
