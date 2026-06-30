@@ -330,46 +330,44 @@ export default function UploadPage() {
       console.log('[upload page] ✅ Video subido a Storage. Job ID:', jobId)
       const publishPromises: Promise<Response>[] = []
 
-      for (const client of clients) {
-        console.log(`[upload page] 🔍 Verificando cuentas para cliente ${client.id}`)
-        const clientAccounts = (client as any).client_social_accounts || []
+      // Extraemos los IDs de los clientes únicos que tienen alguna cuenta seleccionada
+      const activeClientIds = Array.from(new Set(
+        activeAccountIds.map(accId => {
+          // Buscamos a qué cliente pertenece esta cuenta
+          for (const client of clients) {
+            const generic = (client as any).client_social_accounts || []
+            const tokens = (client as any).social_tokens || []
+            if (generic.some((g: any) => g.id === accId) || tokens.some((t: any) => t.id === accId)) {
+              return client.id
+            }
+          }
+          return null
+        }).filter(Boolean)
+      ))
+
+      for (const clientId of activeClientIds) {
+        const client = clients.find(c => c.id === clientId)
+        if (!client) continue
+
         const tokens: any[] = (client as any).social_tokens || []
+        const youtubeTokens = tokens.filter(t => t.platform === 'youtube')
         
-        console.log(`[upload page] 🧾 Cuentas genéricas disponibles:`, clientAccounts)
-        console.log(`[upload page] 🧾 Tokens (OAuth) disponibles:`, tokens)
+        console.log(`[upload] Cliente ${client.name} (${client.id}) tiene YouTube:`, youtubeTokens.length > 0)
+        console.log(`[upload] YouTube tokens encontrados:`, youtubeTokens)
 
-        // 1. Verificar Tokens OAuth (YouTube, etc)
-        for (const token of tokens) {
-          if (activeAccountIds.includes(token.id)) {
-            console.log(`[upload page] 🚀 Llamando a /api/publish/${token.platform} para job ${jobId} y cliente ${client.id}`)
-            publishPromises.push(
-              fetch(`/api/publish/${token.platform}`, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jobId, clientId: client.id }),
-              })
-            )
-          }
+        if (youtubeTokens.length === 0) {
+          throw new Error(`El cliente ${client.name} no tiene YouTube conectado.`)
         }
 
-        // 2. Verificar Cuentas Genéricas (Instagram, Facebook, etc)
-        for (const account of clientAccounts) {
-          if (activeAccountIds.includes(account.id)) {
-            console.log(`[upload page] 🚀 Llamando a /api/publish/${account.platform} para job ${jobId} y cliente ${client.id}`)
-            publishPromises.push(
-              fetch(`/api/publish/${account.platform}`, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jobId, clientId: client.id }),
-              })
-            )
-          }
-        }
-      }
-
-      // ── Paso 3: Publicar en paralelo ──────────────────────────────────────
-      if (publishPromises.length === 0) {
-        throw new Error('No se encontraron plataformas válidas seleccionadas para publicar.')
+        // Si tiene YouTube, llamamos a /api/publish/youtube
+        console.log(`[upload page] 🚀 Llamando a /api/publish/youtube para job ${jobId} y cliente ${client.id}`)
+        publishPromises.push(
+          fetch('/api/publish/youtube', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jobId, clientId: client.id }),
+          })
+        )
       }
 
       setProgress(75)
