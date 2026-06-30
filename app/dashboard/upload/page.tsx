@@ -345,6 +345,10 @@ export default function UploadPage() {
         }).filter(Boolean)
       ))
 
+      const selectedClients = activeClientIds.map(id => clients.find(c => c.id === id)).filter(Boolean)
+      console.log('[upload] 📦 Clientes seleccionados:', selectedClients)
+      console.log('[upload] 📦 Clientes con IDs:', selectedClients.map(c => c?.id))
+
       for (const clientId of activeClientIds) {
         const client = clients.find(c => c.id === clientId)
         if (!client) continue
@@ -352,6 +356,7 @@ export default function UploadPage() {
         const tokens: any[] = (client as any).social_tokens || []
         const youtubeTokens = tokens.filter(t => t.platform === 'youtube')
         
+        console.log('[upload] 📦 YouTube tokens del usuario:', youtubeTokens)
         console.log(`[upload] Cliente ${client.name} (${client.id}) tiene YouTube:`, youtubeTokens.length > 0)
         console.log(`[upload] YouTube tokens encontrados:`, youtubeTokens)
 
@@ -360,7 +365,7 @@ export default function UploadPage() {
         }
 
         // Si tiene YouTube, llamamos a /api/publish/youtube
-        console.log(`[upload page] 🚀 Llamando a /api/publish/youtube para job ${jobId} y cliente ${client.id}`)
+        console.log('[upload] 🚀 Llamando a /api/publish/youtube con jobId:', jobId, 'y clientId:', client.id)
         publishPromises.push(
           fetch('/api/publish/youtube', {
             method:  'POST',
