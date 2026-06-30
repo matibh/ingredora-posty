@@ -330,6 +330,7 @@ export default function UploadPage() {
       console.log('[upload page] ✅ Video subido a Storage. Job ID:', jobId)
       const publishPromises: Promise<Response>[] = []
 
+      console.log('[upload] 🔍 selectedAccounts ANTES de reconstruir:', selectedAccounts)
       // Reconstruir clientes seleccionados desde el estado de las cuentas
       const selectedClientIds = Object.keys(selectedAccounts).filter(id => selectedAccounts[id])
       const clientsSelected = clients.filter(c => selectedClientIds.includes(c.id))
@@ -649,10 +650,14 @@ export default function UploadPage() {
                           <input
                             type="checkbox"
                             checked={selectedAccounts[client.id] || false}
-                            onChange={(e) => setSelectedAccounts({
-                              ...selectedAccounts,
-                              [client.id]: e.target.checked
-                            })}
+                            onChange={(e) => {
+                              console.log(`[upload] 🖱️ Cliente ${client.id} (${client.name}) marcado: ${e.target.checked}`)
+                              setSelectedAccounts(prev => {
+                                const newState = { ...prev, [client.id]: e.target.checked }
+                                console.log(`[upload] 📦 Nuevo estado de selectedAccounts:`, newState)
+                                return newState
+                              })
+                            }}
                             className="w-4 h-4 rounded accent-[#1A6B8A]"
                           />
                           <span className="text-sm font-bold text-[#F0F4F8]">{client.name}</span>
