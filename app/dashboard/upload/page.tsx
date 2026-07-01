@@ -308,9 +308,10 @@ export default function UploadPage() {
         throw new Error(`Error al subir el video: ${uploadRes.status} ${errText}`)
       }
 
-      // Construir URL pública
-      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${urlData.filePath}`
-      console.log(`[upload page] 🌐 URL pública: ${publicUrl}`)
+      // Usar la URL pública que calculó el servidor (evita problemas de duplicación de paths)
+      console.log(`[upload page] 🔗 filePath recibido:`, urlData.filePath)
+      const publicUrl = urlData.publicUrl
+      console.log(`[upload page] 🌐 publicUrl (del servidor):`, publicUrl)
 
       // Verificar que el archivo sea accesible (HEAD request)
       const checkRes = await fetch(publicUrl, { method: 'HEAD' }).catch(() => null)

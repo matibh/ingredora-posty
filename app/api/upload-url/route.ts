@@ -26,10 +26,10 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // 4. Generate unique file path
+    // 4. Generate unique file path (sin el nombre del bucket — Supabase lo gestiona)
     const sanitizedName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
     const uniqueFileName = `${Date.now()}_${sanitizedName}`
-    const filePath = `videos/${user.id}/${uniqueFileName}`
+    const filePath = `${user.id}/${uniqueFileName}` // ej: "abc-123/17000000_video.mp4"
 
     // 5. Create Presigned URL
     const { data, error } = await supabaseAdmin.storage
@@ -41,13 +41,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Error al generar URL de subida' }, { status: 500 })
     }
 
-    console.log('[upload-url] ✅ URL prefirmada generada:', filePath)
+    // URL pública = SUPABASE_URL/storage/v1/object/public/BUCKET/filePath
+    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/videos/${filePath}`
+    console.log('[upload-url] ✅ URL prefirmada generada. filePath:', filePath)
+    console.log('[upload-url] 🌐 URL pública calculada:', publicUrl)
     
-    // We also need the token if supabase requires it or just the signedUrl
-    // createSignedUploadUrl returns { signedUrl, path, token }
     return NextResponse.json({
       uploadUrl: data.signedUrl,
-      filePath: filePath
+      filePath,
+      publicUrl
     }, { status: 200 })
 
   } catch (error) {
