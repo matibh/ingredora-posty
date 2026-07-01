@@ -31,10 +31,10 @@ export async function POST(request: Request) {
     const uniqueFileName = `${Date.now()}_${sanitizedName}`
     const filePath = `videos/${user.id}/${uniqueFileName}`
 
-    // 5. Create Presigned URL (120 segundos de expiración)
+    // 5. Create Presigned URL
     const { data, error } = await supabaseAdmin.storage
       .from('videos')
-      .createSignedUploadUrl(filePath, { expiresIn: 120 })
+      .createSignedUploadUrl(filePath)
 
     if (error || !data?.signedUrl) {
       console.error('[upload-url] Error creating signed URL:', error)
