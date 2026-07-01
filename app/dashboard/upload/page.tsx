@@ -694,11 +694,15 @@ export default function UploadPage() {
                             checked={accounts.length > 0 && accounts.every(acc => selectedAccounts[acc.id])}
                             onChange={(e) => {
                               const isChecked = e.target.checked
+                              const clientAccounts = getClientAccounts(client)
+                              console.log(`[upload] 🖱️ Cliente ${client.name} (${client.id}) marcado = ${isChecked}`)
+                              console.log(`[upload] 📋 Cuentas a marcar:`, clientAccounts.map(a => a.id))
                               setSelectedAccounts(prev => {
                                 const newState = { ...prev }
-                                accounts.forEach(acc => {
+                                clientAccounts.forEach(acc => {
                                   newState[acc.id] = isChecked
                                 })
+                                console.log(`[upload] 📦 Nuevo selectedAccounts:`, newState)
                                 return newState
                               })
                             }}
