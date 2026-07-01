@@ -349,17 +349,24 @@ export default function UploadPage() {
         }
       })
 
-      // Agrupar por cliente
+      console.log('[upload] 🔍 allAccounts completo:', allAccounts)
+      console.log('[upload] 🔍 Buscando cuenta con ID "7":', allAccounts.find(a => a.id === '7'))
+      
+      // Reconstruir selecciones por cliente usando getClientAccounts directamente
+      // Esto evita problemas de tipo (int vs string) y client_id nulo
       const accountsByClient: Record<string, typeof allAccounts> = {}
-      selectedAccountsList.forEach(accountId => {
-        const account = allAccounts.find(a => a.id === accountId)
-        if (account) {
-          if (!accountsByClient[account.client_id]) {
-            accountsByClient[account.client_id] = []
-          }
-          accountsByClient[account.client_id].push(account)
+      clients.forEach(client => {
+        const clientAccounts = getClientAccounts(client)
+        const selectedForClient = clientAccounts.filter(acc =>
+          // Comparar como string para evitar int vs string
+          selectedAccountsList.includes(acc.id) || selectedAccountsList.includes(String(acc.id))
+        )
+        if (selectedForClient.length > 0) {
+          accountsByClient[client.id] = selectedForClient
         }
       })
+
+      console.log('[upload] 📦 Cuentas por cliente:', accountsByClient)
 
       // Para cada cliente, verificar si tiene YouTube seleccionado
       for (const [clientId, accounts] of Object.entries(accountsByClient)) {
@@ -373,7 +380,7 @@ export default function UploadPage() {
         }
 
         // Llamar a /api/publish/youtube con este clientId y el jobId
-        console.log(`[upload] 🚀 Llamando a /api/publish/youtube para cliente: ${clientId}`)
+        console.log(`[upload] 🚀 Publicando en YouTube para cliente ${clientId}`)
         publishPromises.push(
           fetch('/api/publish/youtube', {
             method:  'POST',
