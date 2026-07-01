@@ -28,20 +28,26 @@ export async function POST(request: Request) {
     // publicUrl = https://xxx.supabase.co/storage/v1/object/public/videos/userId/filename
     const supabaseStoragePrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`
     if (videoUrl.startsWith(supabaseStoragePrefix)) {
-      const filePath = videoUrl.replace(supabaseStoragePrefix, '') // e.g. "videos/userId/filename"
-      const pathParts = filePath.split('/')
-      const folder = pathParts.slice(0, -1).join('/') // e.g. "videos/userId"
+      const fullPath = videoUrl.replace(supabaseStoragePrefix, '') // e.g. "videos/userId/filename"
+      const pathParts = fullPath.split('/')
+      // pathParts[0] = "videos" (bucket), pathParts[1] = userId, pathParts[2] = filename
+      const bucket = pathParts[0]
+      const folder = pathParts.slice(1, -1).join('/') // e.g. "userId"
       const fileName = pathParts[pathParts.length - 1]
 
-      console.log(`[upload] 🔍 Verificando existencia del archivo: ${filePath}`)
-      const { data: fileExists, error: checkError } = await supabase.storage
-        .from('videos')
+      console.log(`[upload] 🔍 Verificando existencia. bucket: ${bucket}, folder: ${folder}, file: ${fileName}`)
+
+      const { data: list, error: listError } = await supabase.storage
+        .from(bucket)
         .list(folder, { search: fileName })
 
-      if (checkError) {
-        console.warn(`[upload] ⚠️ No se pudo verificar el archivo (${checkError.message}), continuando de todas formas.`)
-      } else if (!fileExists || fileExists.length === 0) {
-        console.error(`[upload] ❌ El archivo no existe en Storage: ${filePath}`)
+      console.log(`[upload] 📂 Lista de archivos en el bucket (con search):`, list)
+      console.log(`[upload] 📂 Error de listado:`, listError)
+
+      if (listError) {
+        console.warn(`[upload] ⚠️ No se pudo verificar el archivo (${listError.message}), continuando de todas formas.`)
+      } else if (!list || list.length === 0) {
+        console.error(`[upload] ❌ El archivo no existe en Storage: ${fullPath}`)
         return NextResponse.json({ error: 'El archivo no se subió correctamente o aún no está disponible.' }, { status: 400 })
       } else {
         console.log(`[upload] ✅ Archivo verificado en Storage: ${fileName}`)

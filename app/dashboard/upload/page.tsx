@@ -292,20 +292,25 @@ export default function UploadPage() {
         throw new Error(urlData.error ?? 'Error al obtener URL de subida.')
       }
       
-      console.log(`[upload page] 📤 Subiendo video a Supabase... Tamaño: ${videoFile.size} bytes`)
-      console.log(`[upload page] 🔗 URL prefirmada: ${urlData.uploadUrl}`)
-      console.log(`[upload page] 📂 Ruta: ${urlData.filePath}`)
+      console.log('[upload page] ⏳ Subiendo archivo...')
+      console.log(`[upload page] 📤 Tamaño: ${videoFile.size} bytes`)
+      console.log(`[upload page] 🔗 Método: PUT`)
+      console.log(`[upload page] 🗂️ Content-Type: ${videoFile.type}`)
 
       const uploadRes = await fetch(urlData.uploadUrl, {
         method: 'PUT',
         body: videoFile,
         headers: { 'Content-Type': videoFile.type }
       })
-      
+
+      // Leer cuerpo de la respuesta ANTES de cualquier condición
+      const uploadResText = await uploadRes.text().catch(() => '')
+      console.log(`[upload page] 📡 Respuesta del PUT: ${uploadRes.status} ${uploadRes.statusText}`)
+      console.log(`[upload page] 📄 Cuerpo de la respuesta:`, uploadResText)
+
       if (!uploadRes.ok) {
         clearInterval(interval)
-        const errText = await uploadRes.text().catch(() => uploadRes.statusText)
-        throw new Error(`Error al subir el video: ${uploadRes.status} ${errText}`)
+        throw new Error(`Error al subir el video: ${uploadRes.status} ${uploadRes.statusText} - ${uploadResText}`)
       }
 
       // Usar la URL pública que calculó el servidor (evita problemas de duplicación de paths)
