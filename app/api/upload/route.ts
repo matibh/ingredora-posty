@@ -23,6 +23,30 @@ export async function POST(request: Request) {
     }
 
     const publicUrl = videoUrl
+    
+    // Extraer el filePath desde la publicUrl para verificar existencia
+    // publicUrl = https://xxx.supabase.co/storage/v1/object/public/videos/userId/filename
+    const supabaseStoragePrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`
+    if (videoUrl.startsWith(supabaseStoragePrefix)) {
+      const filePath = videoUrl.replace(supabaseStoragePrefix, '') // e.g. "videos/userId/filename"
+      const pathParts = filePath.split('/')
+      const folder = pathParts.slice(0, -1).join('/') // e.g. "videos/userId"
+      const fileName = pathParts[pathParts.length - 1]
+
+      console.log(`[upload] 🔍 Verificando existencia del archivo: ${filePath}`)
+      const { data: fileExists, error: checkError } = await supabase.storage
+        .from('videos')
+        .list(folder, { search: fileName })
+
+      if (checkError) {
+        console.warn(`[upload] ⚠️ No se pudo verificar el archivo (${checkError.message}), continuando de todas formas.`)
+      } else if (!fileExists || fileExists.length === 0) {
+        console.error(`[upload] ❌ El archivo no existe en Storage: ${filePath}`)
+        return NextResponse.json({ error: 'El archivo no se subió correctamente o aún no está disponible.' }, { status: 400 })
+      } else {
+        console.log(`[upload] ✅ Archivo verificado en Storage: ${fileName}`)
+      }
+    }
 
     // 5. Crear el trabajo en la tabla jobs (ahora simplificada)
     const { data: job, error: jobError } = await supabase

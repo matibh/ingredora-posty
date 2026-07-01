@@ -292,7 +292,10 @@ export default function UploadPage() {
         throw new Error(urlData.error ?? 'Error al obtener URL de subida.')
       }
       
-      console.log('[upload page] 2. Subiendo video directamente a Supabase...')
+      console.log(`[upload page] 📤 Subiendo video a Supabase... Tamaño: ${videoFile.size} bytes`)
+      console.log(`[upload page] 🔗 URL prefirmada: ${urlData.uploadUrl}`)
+      console.log(`[upload page] 📂 Ruta: ${urlData.filePath}`)
+
       const uploadRes = await fetch(urlData.uploadUrl, {
         method: 'PUT',
         body: videoFile,
@@ -301,12 +304,19 @@ export default function UploadPage() {
       
       if (!uploadRes.ok) {
         clearInterval(interval)
-        throw new Error('Error al subir el video a Supabase Storage.')
+        const errText = await uploadRes.text().catch(() => uploadRes.statusText)
+        throw new Error(`Error al subir el video: ${uploadRes.status} ${errText}`)
       }
 
-      // Obtener el ID del proyecto de la variable de entorno NEXT_PUBLIC_SUPABASE_URL
-      // URL típica: https://qraapmleuafdvvhnslvh.supabase.co
+      // Construir URL pública
       const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${urlData.filePath}`
+      console.log(`[upload page] 🌐 URL pública: ${publicUrl}`)
+
+      // Verificar que el archivo sea accesible (HEAD request)
+      const checkRes = await fetch(publicUrl, { method: 'HEAD' }).catch(() => null)
+      if (!checkRes || !checkRes.ok) {
+        console.warn('[upload page] ⚠️ El archivo no está accesible inmediatamente. Puede tardar unos segundos.')
+      }
       
       console.log('[upload page] 3. Creando job...')
       const res = await fetch('/api/upload', { 
