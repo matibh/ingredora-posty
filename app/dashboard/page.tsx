@@ -3,12 +3,22 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import DashboardClientGrid from '@/components/DashboardClientGrid'
 
+interface Job {
+  id: string
+  status: string
+  video_url: string | null
+  created_at: string
+  scheduled_for: string | null
+  video_deleted: boolean
+}
+
 const STATUS_BADGE: Record<string, { label: string; bg: string; dot: string; text: string }> = {
   done:       { label: 'Publicado',   bg: 'rgba(34,197,94,0.15)', dot: '#22C55E', text: '#4ADE80' },
   publishing: { label: 'Publicando…', bg: 'rgba(59,130,246,0.15)', dot: '#3B82F6', text: '#60A5FA' },
   pending:    { label: 'En cola',     bg: 'rgba(148,163,184,0.15)', dot: '#94A3B8', text: '#94A3B8' },
   error:      { label: 'Error',       bg: 'rgba(239,68,68,0.15)', dot: '#EF4444', text: '#F87171' },
-  scheduled:  { label: 'Programado',  bg: 'rgba(234,179,8,0.15)', dot: '#EAB308', text: '#FDE047' }, // Amarillo
+  scheduled:  { label: 'Programado',  bg: 'rgba(234,179,8,0.15)', dot: '#EAB308', text: '#FDE047' },
+  deleted:    { label: 'Eliminado',   bg: 'rgba(239,68,68,0.15)', dot: '#EF4444', text: '#F87171' },
 }
 
 export default async function DashboardPage() {
@@ -111,7 +121,14 @@ export default async function DashboardPage() {
                     style={{ border: '1px solid #334155', backgroundColor: '#181E26' }}
                   >
                     <div className="relative aspect-video overflow-hidden border-b" style={{ backgroundColor: '#181E26', borderColor: '#334155' }}>
-                      {job.video_url ? (
+                      {job.video_deleted ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2" style={{ backgroundColor: 'rgba(239,68,68,0.05)' }}>
+                          <svg className="w-8 h-8 opacity-50" style={{ color: '#F87171' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          <span className="text-xs font-bold" style={{ color: '#F87171' }}>Video original eliminado</span>
+                        </div>
+                      ) : job.video_url ? (
                         <video src={job.video_url} className="w-full h-full object-cover opacity-80" muted playsInline />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">

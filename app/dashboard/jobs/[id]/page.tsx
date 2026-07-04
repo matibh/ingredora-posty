@@ -18,6 +18,8 @@ interface Job {
   created_at: string
   scheduled_for: string | null
   platform_video_id: string | null
+  video_deleted: boolean
+  video_deleted_at: string | null
 }
 
 const STATUS_CFG: Record<JobStatus, { label: string; bg: string; text: string; dot: string; progress: number }> = {
@@ -39,6 +41,26 @@ export default function JobStatusPage() {
   const [job, setJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [isDeletingVideo, setIsDeletingVideo] = useState(false)
+
+  const handleDeleteVideo = async () => {
+    if (!job || job.status !== 'done') return
+    if (!window.confirm('¿Estás seguro de que quieres eliminar el video original de la base de datos? Esta acción no se puede deshacer.')) return
+    
+    setIsDeletingVideo(true)
+    try {
+      const res = await fetch(`/api/jobs/${id}/delete-video`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Error al eliminar el video')
+      
+      setJob(prev => prev ? { ...prev, video_deleted: true, video_deleted_at: new Date().toISOString() } : null)
+      alert('Video eliminado correctamente para ahorrar espacio.')
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setIsDeletingVideo(false)
+    }
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -277,19 +299,55 @@ export default function JobStatusPage() {
 
           {/* ── Video Preview ────────────────────────────────────── */}
           <div className="space-y-6">
-            <h3 className="text-lg font-bold tracking-tight" style={{ color: '#F0F4F8' }}>Video original</h3>
-            <div
-              className="rounded-3xl overflow-hidden shadow-lg"
-              style={{ border: '1px solid #334155', backgroundColor: '#0B1E33' }}
-            >
-              <video
-                src={job.video_url}
-                className="w-full object-contain opacity-80"
-                style={{ maxHeight: '420px' }}
-                controls
-                playsInline
-              />
-            </div>
+            <h3 className="text-lg font-bold tracking-tight flex items-center justify-between" style={{ color: '#F0F4F8' }}>
+              Video original
+              {job.video_deleted && (
+                <span className="text-xs px-2 py-1 rounded-md font-bold" style={{ backgroundColor: 'rgba(239,68,68,0.2)', color: '#F87171' }}>
+                  🗑️ Eliminado
+                </span>
+              )}
+            </h3>
+            
+            {job.video_deleted ? (
+              <div
+                className="rounded-3xl p-10 shadow-lg flex flex-col items-center justify-center text-center border"
+                style={{ border: '1px solid #334155', backgroundColor: '#0B1E33' }}
+              >
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(239,68,68,0.1)' }}>
+                  <svg className="w-8 h-8" style={{ color: '#F87171' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </div>
+                <h4 className="font-bold text-lg mb-2" style={{ color: '#F0F4F8' }}>Archivo eliminado</h4>
+                <p className="text-sm" style={{ color: '#A8B8C8' }}>
+                  El archivo original del video fue borrado para liberar espacio. Ya está publicado en tus redes.
+                </p>
+              </div>
+            ) : (
+              <div
+                className="rounded-3xl overflow-hidden shadow-lg border"
+                style={{ border: '1px solid #334155', backgroundColor: '#0B1E33' }}
+              >
+                <video
+                  src={job.video_url}
+                  className="w-full object-contain opacity-80"
+                  style={{ maxHeight: '420px' }}
+                  controls
+                  playsInline
+                />
+              </div>
+            )}
+
+            {job.status === 'done' && !job.video_deleted && (
+              <button
+                onClick={handleDeleteVideo}
+                disabled={isDeletingVideo}
+                className="w-full py-3 rounded-xl text-sm font-bold transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 border flex items-center justify-center gap-2"
+                style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#F87171', borderColor: '#EF4444' }}
+              >
+                {isDeletingVideo ? 'Eliminando...' : '🗑️ Eliminar video original'}
+              </button>
+            )}
 
             <div className="flex gap-4 pt-2">
               <Link
