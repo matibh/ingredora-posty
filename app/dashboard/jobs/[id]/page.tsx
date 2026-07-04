@@ -20,6 +20,7 @@ interface Job {
   platform_video_id: string | null
   video_deleted: boolean
   video_deleted_at: string | null
+  privacy: string | null
 }
 
 const STATUS_CFG: Record<JobStatus, { label: string; bg: string; text: string; dot: string; progress: number }> = {
@@ -200,39 +201,61 @@ export default function JobStatusPage() {
               </div>
 
               {/* Detalles de la publicación */}
-              <div className="pt-6 border-t" style={{ borderColor: '#334155' }}>
-                <div className="mb-4">
-                  <h2 className="text-xl font-semibold" style={{ color: '#F0F4F8' }}>
-                    {job.title || 'Sin título'}
-                  </h2>
-                </div>
-                <div 
-                  className="p-4 rounded-xl text-sm leading-relaxed max-h-32 overflow-y-auto mb-6"
-                  style={{ backgroundColor: '#181E26', color: '#A8B8C8', border: '1px solid #334155' }}
-                >
-                  {job.description ? (
-                    <p className="whitespace-pre-wrap">{job.description}</p>
-                  ) : (
-                    <p className="italic opacity-70">Sin descripción</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Fecha */}
-              <div className="pt-6 border-t" style={{ borderColor: '#334155' }}>
-                <div className="grid grid-cols-2 gap-4">
+              <div className="pt-8 border-t" style={{ borderColor: '#334155' }}>
+                <div className="flex flex-col gap-6">
+                  {/* Header: Title, Privacy and Dates */}
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6A7E94' }}>Inicio</p>
-                    <p className="font-semibold" style={{ color: '#F0F4F8' }}>
-                      {new Date(job.created_at).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'medium' })}
-                    </p>
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <h2 className="text-2xl font-bold leading-tight tracking-tight" style={{ color: '#F0F4F8' }}>
+                        {job.title || 'Sin título'}
+                      </h2>
+                      <span className="shrink-0 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border" style={{ backgroundColor: '#181E26', borderColor: '#334155', color: '#A8B8C8' }}>
+                        {job.privacy || 'Público'}
+                      </span>
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs font-medium" style={{ color: '#6A7E94' }}>
+                      <div className="flex items-center gap-1.5">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span>Creado: {new Date(job.created_at).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                      </div>
+                      {job.scheduled_for && (
+                        <div className="flex items-center gap-1.5" style={{ color: '#EAB308' }}>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Programado: {new Date(job.scheduled_for).toLocaleString('es-AR', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {job.scheduled_for && (
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6A7E94' }}>Programado para</p>
-                      <p className="font-semibold" style={{ color: '#EAB308' }}>
-                        {new Date(job.scheduled_for).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'medium' })}
-                      </p>
+
+                  {/* Descripción */}
+                  <div 
+                    className="p-5 rounded-2xl text-sm leading-relaxed max-h-48 overflow-y-auto"
+                    style={{ backgroundColor: '#181E26', color: '#A8B8C8', border: '1px solid #334155', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.1)' }}
+                  >
+                    {job.description ? (
+                      <p className="whitespace-pre-wrap">{job.description}</p>
+                    ) : (
+                      <p className="italic opacity-70">Sin descripción</p>
+                    )}
+                  </div>
+
+                  {/* Tags */}
+                  {job.tags && job.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {job.tags.map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-default hover:bg-[#334155]"
+                          style={{ backgroundColor: '#181E26', borderColor: '#334155', color: '#F0F4F8' }}
+                        >
+                          {tag.startsWith('#') ? tag : `#${tag}`}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -240,7 +263,7 @@ export default function JobStatusPage() {
 
               {/* Error message */}
               {job.status === 'error' && job.error_message && (
-                <div className="mt-6 p-5 rounded-2xl text-sm border shadow-sm" style={{ backgroundColor: 'rgba(239,68,68,0.1)', borderColor: '#EF4444', color: '#F87171' }}>
+                <div className="mt-8 p-5 rounded-2xl text-sm border shadow-sm" style={{ backgroundColor: 'rgba(239,68,68,0.1)', borderColor: '#EF4444', color: '#F87171' }}>
                   <p className="font-bold mb-1">Problema durante la distribución</p>
                   <p className="leading-relaxed">{job.error_message}</p>
                 </div>
@@ -248,27 +271,14 @@ export default function JobStatusPage() {
 
               {/* Info mensaje */}
               {(job.status === 'pending' || job.status === 'publishing') && (
-                <div className="mt-6 p-5 rounded-2xl text-sm leading-relaxed border shadow-sm" style={{ backgroundColor: '#181E26', borderColor: '#334155', color: '#A8B8C8' }}>
-                  {job.status === 'pending'
-                    ? 'Tu video se ha subido correctamente. Iniciando distribución a las redes conectadas...'
-                    : 'Subiendo tu video a YouTube. Esto puede tardar unos segundos dependiendo del tamaño del archivo.'}
-                </div>
-              )}
-
-              {/* Tags del job */}
-              {job.tags && job.tags.length > 0 && (
-                <div className="mt-6">
-                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6A7E94' }}>Tags</p>
-                  <div className="flex flex-wrap gap-2">
-                    {job.tags.map((tag, idx) => (
-                      <span
-                        key={idx}
-                        className="px-2.5 py-1 rounded-full text-xs font-semibold"
-                        style={{ backgroundColor: '#334155', color: '#F0F4F8' }}
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                <div className="mt-8 p-5 rounded-2xl text-sm leading-relaxed border shadow-sm flex gap-3 items-start" style={{ backgroundColor: '#181E26', borderColor: '#334155', color: '#A8B8C8' }}>
+                  <svg className="w-5 h-5 shrink-0 mt-0.5" style={{ color: '#1A6B8A' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    {job.status === 'pending'
+                      ? 'Tu video se ha subido correctamente. Iniciando distribución a las redes conectadas...'
+                      : 'Subiendo tu video a YouTube. Esto puede tardar unos segundos dependiendo del tamaño del archivo.'}
                   </div>
                 </div>
               )}
