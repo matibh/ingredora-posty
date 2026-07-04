@@ -281,7 +281,7 @@ export default function UploadPage() {
       const currentLength = tags.reduce((acc, curr) => acc + curr.length, 0)
       if (currentLength + newTag.length > 500) return
 
-      setTags([...tags, newTag])
+      setTags(prev => [...prev, newTag])
       setTagInput('')
     } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
       // Opcional: borrar la última tag si el input está vacío y se presiona Backspace
