@@ -206,9 +206,12 @@ export default function JobStatusPage() {
                   {/* Header: Title, Privacy and Dates */}
                   <div>
                     <div className="flex items-start justify-between gap-4 mb-3">
-                      <h2 className="text-2xl font-bold leading-tight tracking-tight" style={{ color: '#F0F4F8' }}>
-                        {job.title || 'Sin título'}
-                      </h2>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#6A7E94' }}>Título</p>
+                        <h2 className="text-2xl font-bold leading-tight tracking-tight" style={{ color: '#F0F4F8' }}>
+                          {job.title || 'Sin título'}
+                        </h2>
+                      </div>
                       <span className="shrink-0 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border" style={{ backgroundColor: '#181E26', borderColor: '#334155', color: '#A8B8C8' }}>
                         {job.privacy || 'Público'}
                       </span>
@@ -233,15 +236,18 @@ export default function JobStatusPage() {
                   </div>
 
                   {/* Descripción */}
-                  <div 
-                    className="p-5 rounded-2xl text-sm leading-relaxed max-h-48 overflow-y-auto"
-                    style={{ backgroundColor: '#181E26', color: '#A8B8C8', border: '1px solid #334155', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.1)' }}
-                  >
-                    {job.description ? (
-                      <p className="whitespace-pre-wrap">{job.description}</p>
-                    ) : (
-                      <p className="italic opacity-70">Sin descripción</p>
-                    )}
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6A7E94' }}>Descripción</p>
+                    <div 
+                      className="p-5 rounded-2xl text-sm leading-relaxed max-h-48 overflow-y-auto"
+                      style={{ backgroundColor: '#181E26', color: '#A8B8C8', border: '1px solid #334155', boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.1)' }}
+                    >
+                      {job.description ? (
+                        <p className="whitespace-pre-wrap">{job.description}</p>
+                      ) : (
+                        <p className="italic opacity-70">Sin descripción</p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Tags */}
