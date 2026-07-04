@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
@@ -42,6 +42,25 @@ export default function JobStatusPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [isDeletingVideo, setIsDeletingVideo] = useState(false)
+  const [isDeletingJob, setIsDeletingJob] = useState(false)
+  const router = useRouter()
+
+  const handleDeleteJob = async () => {
+    if (!job) return
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este trabajo? Esta acción no se puede deshacer.')) return
+    
+    setIsDeletingJob(true)
+    try {
+      const res = await fetch(`/api/jobs/${id}/delete`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Error al eliminar el trabajo')
+      
+      router.push('/dashboard')
+    } catch (err: any) {
+      alert(err.message)
+      setIsDeletingJob(false)
+    }
+  }
 
   const handleDeleteVideo = async () => {
     if (!job || job.status !== 'done') return
@@ -346,6 +365,17 @@ export default function JobStatusPage() {
                 style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#F87171', borderColor: '#EF4444' }}
               >
                 {isDeletingVideo ? 'Eliminando...' : '🗑️ Eliminar video original'}
+              </button>
+            )}
+
+            {(job.status === 'pending' || job.status === 'error') && (
+              <button
+                onClick={handleDeleteJob}
+                disabled={isDeletingJob}
+                className="w-full py-3 rounded-xl text-sm font-bold transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 border flex items-center justify-center gap-2"
+                style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#F87171', borderColor: '#EF4444' }}
+              >
+                {isDeletingJob ? 'Eliminando...' : '🗑️ Eliminar trabajo'}
               </button>
             )}
 
