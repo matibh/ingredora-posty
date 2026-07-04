@@ -725,8 +725,16 @@ export default function UploadPage() {
                       // fallback for older browsers
                     }
                   }}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all cursor-pointer"
-                  style={{ backgroundColor: '#181E26', border: '1px solid #334155', colorScheme: 'dark' }}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all cursor-pointer appearance-none [&::-webkit-calendar-picker-indicator]:opacity-0 relative"
+                  style={{ 
+                    backgroundColor: '#181E26', 
+                    border: '1px solid #334155', 
+                    colorScheme: 'dark',
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236A7E94' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                    backgroundPosition: 'right 0.5rem center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '1.5em 1.5em'
+                  }}
                 />
                 <p className="text-xs text-[#A8B8C8] mt-1.5">
                   El video se subirá a YouTube como "Privado" y pasará a "Público" en la fecha indicada.
