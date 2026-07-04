@@ -82,6 +82,7 @@ export async function uploadToYouTube(
   title:       string,
   description: string,
   privacyStatus: 'public' | 'private' | 'unlisted' = 'public',
+  publishAt?:  string, // ISO 8601 — si se proporciona, YouTube programa la publicación
 ): Promise<YouTubeUploadResult> {
 
   // Paso 1: Descargar el video desde Supabase Storage
@@ -97,15 +98,21 @@ export async function uploadToYouTube(
   console.log(`[YouTube] Video descargado: ${(contentLength / 1024 / 1024).toFixed(2)} MB`)
 
   // Paso 2: Iniciar sesión de subida reanudable
+  const status: Record<string, string> = { privacyStatus }
+  if (publishAt) {
+    // YouTube requiere privacyStatus = 'private' para poder usar publishAt
+    status.privacyStatus = 'private'
+    status.publishAt = publishAt
+    console.log(`[YouTube] Programando publicación para: ${publishAt}`)
+  }
+
   const metadata = {
     snippet: {
       title:       title.trim() || 'Video sin título',
       description: description || '',
       categoryId:  '22', // People & Blogs
     },
-    status: {
-      privacyStatus, // 'public' | 'private' | 'unlisted'
-    },
+    status,
   }
 
   const initRes = await fetch(

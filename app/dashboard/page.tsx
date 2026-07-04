@@ -8,6 +8,7 @@ const STATUS_BADGE: Record<string, { label: string; bg: string; dot: string; tex
   publishing: { label: 'Publicando…', bg: 'rgba(59,130,246,0.15)', dot: '#3B82F6', text: '#60A5FA' },
   pending:    { label: 'En cola',     bg: 'rgba(148,163,184,0.15)', dot: '#94A3B8', text: '#94A3B8' },
   error:      { label: 'Error',       bg: 'rgba(239,68,68,0.15)', dot: '#EF4444', text: '#F87171' },
+  scheduled:  { label: 'Programado',  bg: 'rgba(234,179,8,0.15)', dot: '#EAB308', text: '#FDE047' }, // Amarillo
 }
 
 export default async function DashboardPage() {
@@ -99,7 +100,9 @@ export default async function DashboardPage() {
           ) : (
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {recentJobs.map((job) => {
-                const badge = STATUS_BADGE[job.status] ?? STATUS_BADGE.pending
+                let badgeKey = job.status
+                if (job.status === 'pending' && job.scheduled_for) badgeKey = 'scheduled'
+                const badge = STATUS_BADGE[badgeKey] ?? STATUS_BADGE.pending
                 return (
                   <Link
                     key={job.id}
@@ -130,9 +133,14 @@ export default async function DashboardPage() {
                         <p className="text-sm font-bold truncate tracking-tight" style={{ color: '#F0F4F8' }}>Video publicado</p>
                         <p className="text-xs font-mono mt-0.5" style={{ color: '#6A7E94' }}>{job.id.toString().slice(0, 8)}</p>
                       </div>
-                      <p className="text-xs whitespace-nowrap flex-shrink-0 font-medium" style={{ color: '#A8B8C8' }}>
-                        {new Date(job.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
-                      </p>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-xs whitespace-nowrap font-medium" style={{ color: job.scheduled_for ? '#EAB308' : '#A8B8C8' }}>
+                          {job.scheduled_for 
+                            ? `📅 ${new Date(job.scheduled_for).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}`
+                            : new Date(job.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+                          }
+                        </p>
+                      </div>
                     </div>
                   </Link>
                 )

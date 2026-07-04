@@ -88,6 +88,11 @@ export async function POST(request: Request) {
     // 7. Subir el video a YouTube
     console.log('[publish/youtube] Iniciando subida a YouTube para cliente:', clientId)
     const privacyStatus = mapPrivacyStatus(job.privacy || 'público')
+    const publishAt = job.scheduled_for ? new Date(job.scheduled_for).toISOString() : undefined
+
+    if (publishAt) {
+      console.log('[publish/youtube] 📅 Video programado para:', publishAt)
+    }
 
     let uploadResult
     try {
@@ -97,6 +102,7 @@ export async function POST(request: Request) {
         job.title || 'Video sin título',
         job.description || '',
         privacyStatus,
+        publishAt,
       )
     } catch (uploadErr: unknown) {
       const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr)

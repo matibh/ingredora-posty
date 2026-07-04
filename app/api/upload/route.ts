@@ -16,7 +16,7 @@ export async function POST(request: Request) {
 
     // 2. Obtener los datos del JSON
     const body = await request.json()
-    const { videoUrl, title, description, tags, privacy } = body
+    const { videoUrl, title, description, tags, privacy, scheduled_for } = body
 
     if (!videoUrl) {
       return NextResponse.json({ error: 'Falta la URL del video' }, { status: 400 })
@@ -64,7 +64,8 @@ export async function POST(request: Request) {
         title: title || '',
         description: description || '',
         tags: tags || '',
-        privacy: privacy || 'Público'
+        privacy: privacy || 'Público',
+        ...(scheduled_for ? { scheduled_for } : {}),
       })
       .select()
       .single()

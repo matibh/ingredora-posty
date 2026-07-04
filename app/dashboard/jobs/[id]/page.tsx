@@ -14,6 +14,7 @@ interface Job {
   title: string | null
   error_message: string | null
   created_at: string
+  scheduled_for: string | null
   platform_video_id: string | null
 }
 
@@ -132,7 +133,7 @@ export default function JobStatusPage() {
                       animation: job.status === 'publishing' ? 'pulse 1.5s infinite' : 'none',
                     }}
                   />
-                  {s.label}
+                  {job.status === 'pending' && job.scheduled_for ? '📅 Programado' : s.label}
                 </div>
               </div>
 
@@ -176,10 +177,22 @@ export default function JobStatusPage() {
 
               {/* Fecha */}
               <div className="pt-6 border-t" style={{ borderColor: '#334155' }}>
-                <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6A7E94' }}>Inicio</p>
-                <p className="font-semibold" style={{ color: '#F0F4F8' }}>
-                  {new Date(job.created_at).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'medium' })}
-                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6A7E94' }}>Inicio</p>
+                    <p className="font-semibold" style={{ color: '#F0F4F8' }}>
+                      {new Date(job.created_at).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'medium' })}
+                    </p>
+                  </div>
+                  {job.scheduled_for && (
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6A7E94' }}>Programado para</p>
+                      <p className="font-semibold" style={{ color: '#EAB308' }}>
+                        {new Date(job.scheduled_for).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'medium' })}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Error message */}

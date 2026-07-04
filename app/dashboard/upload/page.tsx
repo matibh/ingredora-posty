@@ -103,6 +103,7 @@ export default function UploadPage() {
   const [description, setDescription] = useState('')
   const [tags, setTags] = useState('')
   const [privacy, setPrivacy] = useState('Público')
+  const [scheduledFor, setScheduledFor] = useState('')
 
   // Clients & Accounts selection
   const [clients, setClients] = useState<Client[]>([])
@@ -266,6 +267,11 @@ export default function UploadPage() {
     if (!videoFile) return setError('Por favor selecciona un video.')
     if (!title.trim()) return setError('El título es obligatorio.')
     
+    if (privacy === 'Programado') {
+      if (!scheduledFor) return setError('Por favor elige una fecha y hora para la publicación.')
+      if (new Date(scheduledFor) <= new Date()) return setError('La fecha de programación debe ser en el futuro.')
+    }
+    
     // Validate that at least one account is selected
     const activeAccountIds = Object.keys(selectedAccounts).filter(id => !!selectedAccounts[id])
     if (activeAccountIds.length === 0) {
@@ -333,7 +339,8 @@ export default function UploadPage() {
           description,
           tags,
           privacy,
-          videoUrl: publicUrl
+          videoUrl: publicUrl,
+          scheduled_for: privacy === 'Programado' ? new Date(scheduledFor).toISOString() : undefined
         })
       })
       clearInterval(interval)
@@ -631,9 +638,26 @@ export default function UploadPage() {
                   <option value="Público">Público</option>
                   <option value="Privado">Privado</option>
                   <option value="No listado">No listado</option>
+                  <option value="Programado">Programado</option>
                 </select>
               </div>
             </div>
+
+            {privacy === 'Programado' && (
+              <div>
+                <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Fecha y hora de publicación <span className="text-red-500">*</span></label>
+                <input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(e) => setScheduledFor(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all"
+                  style={{ backgroundColor: '#181E26', border: '1px solid #334155' }}
+                />
+                <p className="text-xs text-[#A8B8C8] mt-1.5">
+                  El video se subirá a YouTube como "Privado" y pasará a "Público" en la fecha indicada.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Selector de Clientes y Cuentas */}
