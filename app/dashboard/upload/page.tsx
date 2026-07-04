@@ -712,23 +712,13 @@ export default function UploadPage() {
             {privacy === 'Programado' && (
               <div>
                 <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Fecha y hora de publicación <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <input
-                    type="datetime-local"
-                    value={scheduledFor}
-                    onChange={(e) => setScheduledFor(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all [&::-webkit-calendar-picker-indicator]:opacity-0 z-10 relative bg-transparent"
-                    style={{ backgroundColor: '#181E26', border: '1px solid #334155' }}
-                  />
-                  <svg
-                    className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none w-5 h-5 z-0"
-                    style={{ color: '#6A7E94' }}
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                  </svg>
-                </div>
+                <input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(e) => setScheduledFor(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all"
+                  style={{ backgroundColor: '#181E26', border: '1px solid #334155', colorScheme: 'dark' }}
+                />
                 <p className="text-xs text-[#A8B8C8] mt-1.5">
                   El video se subirá a YouTube como "Privado" y pasará a "Público" en la fecha indicada.
                 </p>
