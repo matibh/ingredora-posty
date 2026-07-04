@@ -28,7 +28,8 @@ export async function cleanOrphanVideos() {
       totalFiles++;
       
       // 3. Verificar antigüedad (más de 2 horas)
-      const fileDate = new Date(file.created_at || file.last_modified);
+      const fileDateStr = file.created_at || file.updated_at;
+      const fileDate = fileDateStr ? new Date(fileDateStr) : new Date();
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
       
       if (fileDate > twoHoursAgo) {
