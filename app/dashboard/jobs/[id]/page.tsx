@@ -20,7 +20,6 @@ interface Job {
   platform_video_id: string | null
   video_deleted: boolean
   video_deleted_at: string | null
-  hidden: boolean
 }
 
 const STATUS_CFG: Record<JobStatus, { label: string; bg: string; text: string; dot: string; progress: number }> = {
@@ -43,26 +42,7 @@ export default function JobStatusPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [isDeletingJob, setIsDeletingJob] = useState(false)
-  const [isHidingJob, setIsHidingJob] = useState(false)
   const router = useRouter()
-
-  const handleHideJob = async () => {
-    if (!job || job.status !== 'done') return
-    if (!window.confirm('¿Estás seguro de que quieres ocultar este trabajo del historial? No aparecerá más en tu dashboard.')) return
-    
-    setIsHidingJob(true)
-    try {
-      const res = await fetch(`/api/jobs/${id}/hide`, { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Error al ocultar el trabajo')
-      
-      alert('Trabajo ocultado correctamente.')
-      router.push('/dashboard')
-    } catch (err: any) {
-      alert(err.message)
-      setIsHidingJob(false)
-    }
-  }
 
   const handleDeleteJob = async () => {
     if (!job) return
@@ -340,25 +320,14 @@ export default function JobStatusPage() {
               </>
             )}
 
-            {job.status === 'done' && (
-              <button
-                onClick={handleHideJob}
-                disabled={isHidingJob}
-                className="w-full py-3 rounded-xl text-sm font-bold transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 border flex items-center justify-center gap-2"
-                style={{ backgroundColor: 'rgba(26,107,138,0.1)', color: '#1A6B8A', borderColor: '#1A6B8A' }}
-              >
-                {isHidingJob ? 'Ocultando...' : '👁️ Ocultar del historial'}
-              </button>
-            )}
-
-            {job.status !== 'publishing' && (
+            {(job.status === 'pending' || job.status === 'error') && (
               <button
                 onClick={handleDeleteJob}
                 disabled={isDeletingJob}
                 className="w-full py-3 rounded-xl text-sm font-bold transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 border flex items-center justify-center gap-2"
                 style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#F87171', borderColor: '#EF4444' }}
               >
-                {isDeletingJob ? 'Eliminando...' : '🗑️ Eliminar trabajo'}
+                {isDeletingJob ? 'Eliminando...' : job.scheduled_for ? '🗑️ Cancelar programación' : '🗑️ Descartar publicación'}
               </button>
             )}
 
