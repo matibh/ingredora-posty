@@ -36,6 +36,7 @@ export default async function DashboardPage() {
     .from('jobs')
     .select('*')
     .eq('user_id', user.id)
+    .neq('hidden', true)
     .order('created_at', { ascending: false })
     .limit(10)
 
