@@ -199,6 +199,25 @@ export default function JobStatusPage() {
                 </div>
               </div>
 
+              {/* Detalles de la publicación */}
+              <div className="pt-6 border-t" style={{ borderColor: '#334155' }}>
+                <div className="mb-4">
+                  <h2 className="text-xl font-semibold" style={{ color: '#F0F4F8' }}>
+                    {job.title || 'Sin título'}
+                  </h2>
+                </div>
+                <div 
+                  className="p-4 rounded-xl text-sm leading-relaxed max-h-32 overflow-y-auto mb-6"
+                  style={{ backgroundColor: '#181E26', color: '#A8B8C8', border: '1px solid #334155' }}
+                >
+                  {job.description ? (
+                    <p className="whitespace-pre-wrap">{job.description}</p>
+                  ) : (
+                    <p className="italic opacity-70">Sin descripción</p>
+                  )}
+                </div>
+              </div>
+
               {/* Fecha */}
               <div className="pt-6 border-t" style={{ borderColor: '#334155' }}>
                 <div className="grid grid-cols-2 gap-4">
