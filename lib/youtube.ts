@@ -111,7 +111,7 @@ export async function uploadToYouTube(
     snippet: {
       title:       title.trim() || 'Video sin título',
       description: description || '',
-      tags:        tags,
+      tags:        tags ? [...tags].reverse() : [],
       categoryId:  '22', // People & Blogs
     },
     status,
