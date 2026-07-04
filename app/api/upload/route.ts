@@ -1,10 +1,16 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { cleanOrphanVideos } from '@/lib/storage-cleanup'
 
 // Allow large video uploads — raise if needed
 export const maxDuration = 60 // seconds (Vercel Pro+)
 
 export async function POST(request: Request) {
+  // Ejecutar limpieza de videos huérfanos en segundo plano (sin bloquear)
+  if (process.env.NODE_ENV !== 'development') {
+    cleanOrphanVideos().catch(err => console.error('[cleanOrphanVideos] Error en limpieza:', err))
+  }
+
   try {
     // 1. Obtener el usuario autenticado
     const supabase = await createClient()
