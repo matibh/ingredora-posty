@@ -55,6 +55,7 @@ export default function JobStatusPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error al eliminar el trabajo')
       
+      alert('Trabajo eliminado correctamente.')
       router.push('/dashboard')
     } catch (err: any) {
       alert(err.message)
@@ -368,7 +369,7 @@ export default function JobStatusPage() {
               </button>
             )}
 
-            {(job.status === 'pending' || job.status === 'error') && (
+            {job.status !== 'publishing' && (
               <button
                 onClick={handleDeleteJob}
                 disabled={isDeletingJob}

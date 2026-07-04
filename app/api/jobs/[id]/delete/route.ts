@@ -29,21 +29,19 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'Trabajo no encontrado' }, { status: 404 })
     }
 
-    // 3. Validar estado — solo se puede eliminar si está pending, error o scheduled
-    const deletableStatuses = ['pending', 'error', 'scheduled']
-    if (!deletableStatuses.includes(job.status)) {
+    // 3. Validar estado — no se puede eliminar si está en proceso de publicación
+    if (job.status === 'publishing') {
       return NextResponse.json(
-        { error: 'Solo se pueden eliminar trabajos en estado pendiente, con error o programados.' },
+        { error: 'No se puede eliminar un trabajo que está siendo publicado.' },
         { status: 400 }
       )
     }
 
-    // 4. Borrar video de Storage si existe
-    const videoUrl = job.video_url
-    if (videoUrl) {
+    // 4. Borrar video de Storage si existe y no fue borrado previamente
+    if (!job.video_deleted && job.video_url) {
       const supabaseStoragePrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`
-      if (videoUrl.startsWith(supabaseStoragePrefix)) {
-        const fullPath = videoUrl.replace(supabaseStoragePrefix, '')
+      if (job.video_url.startsWith(supabaseStoragePrefix)) {
+        const fullPath = job.video_url.replace(supabaseStoragePrefix, '')
         const pathParts = fullPath.split('/')
         const bucket = pathParts[0]
         const filePath = pathParts.slice(1).join('/')
