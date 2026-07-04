@@ -716,7 +716,16 @@ export default function UploadPage() {
                   type="datetime-local"
                   value={scheduledFor}
                   onChange={(e) => setScheduledFor(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all"
+                  onClick={(e) => {
+                    try {
+                      if ('showPicker' in HTMLInputElement.prototype) {
+                        (e.currentTarget as any).showPicker()
+                      }
+                    } catch (err) {
+                      // fallback for older browsers
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all cursor-pointer"
                   style={{ backgroundColor: '#181E26', border: '1px solid #334155', colorScheme: 'dark' }}
                 />
                 <p className="text-xs text-[#A8B8C8] mt-1.5">
