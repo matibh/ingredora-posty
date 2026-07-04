@@ -265,27 +265,42 @@ export default function UploadPage() {
   }
 
   // Manejo de tags
+  const addTag = (val: string) => {
+    const newTag = val.trim().replace(/^#/, '') // Remove leading hash if any
+    if (!newTag) return
+
+    // Validations
+    if (tags.includes(newTag)) {
+      setTagInput('')
+      return
+    }
+    if (tags.length >= 30) return
+    
+    const currentLength = tags.reduce((acc, curr) => acc + curr.length, 0)
+    if (currentLength + newTag.length > 500) return
+
+    setTags(prev => [...prev, newTag])
+    setTagInput('')
+  }
+
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault()
-      const newTag = tagInput.trim().replace(/^#/, '') // Remove leading hash if any
-      if (!newTag) return
-
-      // Validations
-      if (tags.includes(newTag)) {
-        setTagInput('')
-        return
-      }
-      if (tags.length >= 30) return
-      
-      const currentLength = tags.reduce((acc, curr) => acc + curr.length, 0)
-      if (currentLength + newTag.length > 500) return
-
-      setTags(prev => [...prev, newTag])
-      setTagInput('')
+      addTag(tagInput)
     } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
       // Opcional: borrar la última tag si el input está vacío y se presiona Backspace
       setTags(tags.slice(0, -1))
+    }
+  }
+
+  const handleTagChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    // En móviles a veces no se captura el onKeyDown correctamente
+    if (val.includes(',')) {
+      const parts = val.split(',')
+      addTag(parts[0])
+    } else {
+      setTagInput(val)
     }
   }
 
@@ -676,8 +691,11 @@ export default function UploadPage() {
                     id="tag-input"
                     type="text"
                     value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
+                    onChange={handleTagChange}
                     onKeyDown={handleTagKeyDown}
+                    onBlur={() => {
+                      if (tagInput.trim()) addTag(tagInput)
+                    }}
                     placeholder={tags.length === 0 ? "marketing, tips, viral (presiona Enter o coma)" : ""}
                     className="flex-1 min-w-[120px] bg-transparent text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none"
                     disabled={tags.length >= 30 || tagsLength >= 500}
@@ -933,7 +951,7 @@ export default function UploadPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
             </svg>
           )}
-          {isUploading ? 'Procesando...' : 'Publicar en cuentas seleccionadas'}
+          {isUploading ? 'Procesando...' : 'Publicar'}
         </button>
       </main>
     </div>
