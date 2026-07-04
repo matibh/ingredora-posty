@@ -40,6 +40,7 @@ export default function JobStatusPage() {
   const { id } = useParams<{ id: string }>()
   const [job, setJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const [isDeletingJob, setIsDeletingJob] = useState(false)
   const router = useRouter()
 
