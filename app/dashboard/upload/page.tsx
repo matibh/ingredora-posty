@@ -101,7 +101,8 @@ export default function UploadPage() {
   // Metadatos del video
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [tags, setTags] = useState('')
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
   const [privacy, setPrivacy] = useState('Público')
   const [scheduledFor, setScheduledFor] = useState('')
 
@@ -262,6 +263,37 @@ export default function UploadPage() {
       return next
     })
   }
+
+  // Manejo de tags
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      const newTag = tagInput.trim().replace(/^#/, '') // Remove leading hash if any
+      if (!newTag) return
+
+      // Validations
+      if (tags.includes(newTag)) {
+        setTagInput('')
+        return
+      }
+      if (tags.length >= 30) return
+      
+      const currentLength = tags.reduce((acc, curr) => acc + curr.length, 0)
+      if (currentLength + newTag.length > 500) return
+
+      setTags([...tags, newTag])
+      setTagInput('')
+    } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
+      // Opcional: borrar la última tag si el input está vacío y se presiona Backspace
+      setTags(tags.slice(0, -1))
+    }
+  }
+
+  const removeTag = (indexToRemove: number) => {
+    setTags(tags.filter((_, index) => index !== indexToRemove))
+  }
+
+  const tagsLength = tags.reduce((acc, curr) => acc + curr.length, 0)
 
   async function handleSubmit() {
     if (!videoFile) return setError('Por favor selecciona un video.')
@@ -617,14 +649,48 @@ export default function UploadPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
                 <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Tags / Hashtags</label>
-                <input
-                  type="text"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  placeholder="marketing, tips, viral"
-                  className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all"
+                <div 
+                  className="w-full px-3 py-2 rounded-xl flex flex-wrap gap-2 items-center transition-all cursor-text focus-within:ring-2 focus-within:ring-[#1A6B8A]"
                   style={{ backgroundColor: '#181E26', border: '1px solid #334155' }}
-                />
+                  onClick={() => document.getElementById('tag-input')?.focus()}
+                >
+                  {tags.map((tag, idx) => (
+                    <div 
+                      key={idx} 
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
+                      style={{ backgroundColor: '#334155', color: '#F0F4F8' }}
+                    >
+                      {tag}
+                      <button 
+                        type="button" 
+                        onClick={(e) => { e.stopPropagation(); removeTag(idx) }}
+                        className="text-[#F87171] hover:text-white transition-colors p-0.5 rounded-full hover:bg-red-500/20"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                  <input
+                    id="tag-input"
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleTagKeyDown}
+                    placeholder={tags.length === 0 ? "marketing, tips, viral (presiona Enter o coma)" : ""}
+                    className="flex-1 min-w-[120px] bg-transparent text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none"
+                    disabled={tags.length >= 30 || tagsLength >= 500}
+                  />
+                </div>
+                <div className="flex justify-between items-center mt-1.5">
+                  <p className="text-xs text-[#A8B8C8]">
+                    {tags.length}/30 tags
+                  </p>
+                  <p className="text-xs text-[#A8B8C8]">
+                    {tagsLength}/500 caracteres
+                  </p>
+                </div>
               </div>
               
               <div>

@@ -101,6 +101,7 @@ export async function POST(request: Request) {
         job.video_url,
         job.title || 'Video sin título',
         job.description || '',
+        Array.isArray(job.tags) ? job.tags : [],
         privacyStatus,
         publishAt,
       )

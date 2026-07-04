@@ -81,6 +81,7 @@ export async function uploadToYouTube(
   videoUrl:    string,
   title:       string,
   description: string,
+  tags:        string[] = [],
   privacyStatus: 'public' | 'private' | 'unlisted' = 'public',
   publishAt?:  string, // ISO 8601 — si se proporciona, YouTube programa la publicación
 ): Promise<YouTubeUploadResult> {
@@ -110,6 +111,7 @@ export async function uploadToYouTube(
     snippet: {
       title:       title.trim() || 'Video sin título',
       description: description || '',
+      tags:        tags,
       categoryId:  '22', // People & Blogs
     },
     status,

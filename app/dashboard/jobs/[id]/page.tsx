@@ -12,6 +12,8 @@ interface Job {
   status: JobStatus
   video_url: string
   title: string | null
+  description: string | null
+  tags: string[] | null
   error_message: string | null
   created_at: string
   scheduled_for: string | null
@@ -209,6 +211,24 @@ export default function JobStatusPage() {
                   {job.status === 'pending'
                     ? 'Tu video se ha subido correctamente. Iniciando distribución a las redes conectadas...'
                     : 'Subiendo tu video a YouTube. Esto puede tardar unos segundos dependiendo del tamaño del archivo.'}
+                </div>
+              )}
+
+              {/* Tags del job */}
+              {job.tags && job.tags.length > 0 && (
+                <div className="mt-6">
+                  <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6A7E94' }}>Tags</p>
+                  <div className="flex flex-wrap gap-2">
+                    {job.tags.map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                        style={{ backgroundColor: '#334155', color: '#F0F4F8' }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

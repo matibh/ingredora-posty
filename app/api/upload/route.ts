@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         status: 'pending',
         title: title || '',
         description: description || '',
-        tags: tags || '',
+        tags: Array.isArray(tags) ? tags : [],
         privacy: privacy || 'Público',
         ...(scheduled_for ? { scheduled_for } : {}),
       })
