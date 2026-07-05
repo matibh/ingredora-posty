@@ -23,8 +23,8 @@ export async function GET(request: Request) {
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/instagram/callback`;
     const scope = encodeURIComponent('pages_manage_posts pages_read_engagement pages_show_list instagram_business_basic instagram_business_content_publish');
     
-    // Facebook OAuth dialog URL for Instagram
-    const authUrl = `https://www.facebook.com/v22.0/dialog/oauth?client_id=${metaAppId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
+    // Instagram OAuth dialog URL
+    const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${metaAppId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
 
     return NextResponse.redirect(authUrl);
   } catch (error) {
