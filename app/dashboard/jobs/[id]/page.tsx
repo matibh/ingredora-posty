@@ -252,16 +252,19 @@ export default function JobStatusPage() {
 
                   {/* Tags */}
                   {job.tags && job.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {job.tags.map((tag, idx) => (
-                        <span
-                          key={idx}
-                          className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-default hover:bg-[#334155]"
-                          style={{ backgroundColor: '#181E26', borderColor: '#334155', color: '#F0F4F8' }}
-                        >
-                          {tag.startsWith('#') ? tag : `#${tag}`}
-                        </span>
-                      ))}
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6A7E94' }}>Etiquetas</p>
+                      <div className="flex flex-wrap gap-2">
+                        {job.tags.map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-default hover:bg-[#334155]"
+                            style={{ backgroundColor: '#181E26', borderColor: '#334155', color: '#F0F4F8' }}
+                          >
+                            {tag.startsWith('#') ? tag : `#${tag}`}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
