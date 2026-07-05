@@ -46,7 +46,7 @@ export async function uploadToInstagram(
   videoUrl: string,
   caption: string,
   igUserId: string
-): Promise<{ id: string }> {
+): Promise<{ id: string; permalink: string }> {
   console.log('[instagram] 🚀 Iniciando publicación en Instagram');
   console.log('[instagram] 📹 Video URL:', videoUrl);
   console.log('[instagram] 👤 IG User ID:', igUserId);
