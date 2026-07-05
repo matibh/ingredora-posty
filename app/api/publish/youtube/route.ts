@@ -56,9 +56,8 @@ export async function POST(request: Request) {
     // 5. Verificar si el token necesita renovación
     let accessToken = tokenRow.access_token
     const needsRefresh = tokenRow.expires_at
-      // Renovar si ya expiró O vence en menos de 10 minutos (margen generoso)
       ? new Date(tokenRow.expires_at).getTime() - Date.now() < 10 * 60 * 1000
-      : false  // Sin expires_at → asumir válido
+      : false
 
     if (needsRefresh) {
       if (!tokenRow.refresh_token) {
@@ -77,22 +76,18 @@ export async function POST(request: Request) {
         .update({ access_token: refreshed.access_token, expires_at: newExpiresAt })
         .eq('id', tokenRow.id)
 
-      console.log('[publish/youtube] ✅ Token renovado y guardado. Nuevo expires_at:', newExpiresAt)
+      console.log('[publish/youtube] ✅ Token renovado. Nuevo expires_at:', newExpiresAt)
     }
+
     // 6. Marcar el job como "publicando"
-    await supabase
-      .from('jobs')
-      .update({ status: 'publishing' })
-      .eq('id', jobId)
+    await supabase.from('jobs').update({ status: 'publishing' }).eq('id', jobId)
 
     // 7. Subir el video a YouTube
-    console.log('[publish/youtube] Iniciando subida a YouTube para cliente:', clientId)
+    console.log('[publish/youtube] Iniciando subida para cliente:', clientId)
     const privacyStatus = mapPrivacyStatus(job.privacy || 'público')
     const publishAt = job.scheduled_for ? new Date(job.scheduled_for).toISOString() : undefined
 
-    if (publishAt) {
-      console.log('[publish/youtube] 📅 Video programado para:', publishAt)
-    }
+    if (publishAt) console.log('[publish/youtube] 📅 Video programado para:', publishAt)
 
     let uploadResult
     try {
@@ -108,31 +103,38 @@ export async function POST(request: Request) {
     } catch (uploadErr: unknown) {
       const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr)
       console.error('[publish/youtube] Error subiendo a YouTube:', msg)
-
-      await supabase
-        .from('jobs')
-        .update({ status: 'error', error_message: msg })
-        .eq('id', jobId)
-
+      await supabase.from('jobs').update({ status: 'error', error_message: msg }).eq('id', jobId)
       return NextResponse.json({ error: msg }, { status: 500 })
     }
 
-    // 8. Guardar el resultado en el job
+    const videoId = uploadResult.videoId
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`
+    console.log('[publish/youtube] 🆔 Video ID guardado:', videoId)
+    console.log('[publish/youtube] 🔗 URL:', videoUrl)
+
+    // 8. Leer platform_video_url existente y combinar con YouTube
+    const { data: currentJob } = await supabase.from('jobs').select('platform_video_url').eq('id', jobId).single()
+    let existingUrls: Record<string, string> = {}
+    if (currentJob?.platform_video_url) {
+      try { existingUrls = JSON.parse(currentJob.platform_video_url) } catch {}
+    }
+    const updatedUrls = { ...existingUrls, youtube: videoUrl }
+
+    // 9. Guardar resultado en el job
     await supabase
       .from('jobs')
       .update({
-        status:            'done',
-        platform_video_id: uploadResult.videoId,
-        error_message:     null,
+        status:             'done',
+        platform_video_id:  videoId,          // retrocompat con código anterior
+        platform_video_url: JSON.stringify(updatedUrls),
+        error_message:      null,
       })
       .eq('id', jobId)
 
-    console.log('[publish/youtube] ✅ Video publicado. ID de YouTube:', uploadResult.videoId)
-
     return NextResponse.json({
       success:  true,
-      videoId:  uploadResult.videoId,
-      videoUrl: `https://www.youtube.com/watch?v=${uploadResult.videoId}`,
+      videoId,
+      videoUrl,
     })
 
   } catch (error) {

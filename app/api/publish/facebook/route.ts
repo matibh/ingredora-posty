@@ -71,13 +71,28 @@ export async function POST(request: Request) {
     // 4. Update Job on Success
     const updatedStatus = job.scheduled_for ? 'pending' : 'done';
     
+    const videoId = result.id;
+    const videoUrl = `https://www.facebook.com/watch?v=${videoId}`;
+    
+    console.log('[publish/facebook] 🆔 Video ID guardado:', videoId);
+    console.log('[publish/facebook] 🔗 URL:', videoUrl);
+
+    // Leer platform_video_url existente y combinar con Facebook
+    const { data: currentJob } = await supabase.from('jobs').select('platform_video_url').eq('id', jobId).single();
+    let existingUrls: Record<string, string> = {};
+    if (currentJob?.platform_video_url) {
+      try { existingUrls = JSON.parse(currentJob.platform_video_url); } catch {}
+    }
+    const updatedUrls = { ...existingUrls, facebook: videoUrl };
+
     await supabase.from('jobs').update({
       status: updatedStatus,
-      platform_video_id: result.id,
+      platform_video_id: videoId, // retrocompatibilidad
+      platform_video_url: JSON.stringify(updatedUrls),
       error_message: null
     }).eq('id', jobId);
 
-    return NextResponse.json({ success: true, platform_video_id: result.id });
+    return NextResponse.json({ success: true, platform_video_id: videoId, videoUrl });
 
   } catch (error: any) {
     console.error('API Publish Facebook error:', error);

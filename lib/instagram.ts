@@ -113,7 +113,30 @@ export async function uploadToInstagram(
     }
 
     console.log('[instagram] 🎉 Publicado exitosamente. ID:', publishData.id);
-    return { id: publishData.id };
+
+    // Paso 4: Obtener el permalink o shortcode
+    let permalink = `https://www.instagram.com/p/${publishData.id}`; // fallback
+    try {
+      const pUrl = new URL(`https://graph.instagram.com/v22.0/${publishData.id}`);
+      pUrl.searchParams.append('fields', 'permalink,shortcode');
+      pUrl.searchParams.append('access_token', accessToken);
+      
+      const pRes = await fetch(pUrl.toString());
+      const pData = await pRes.json();
+      
+      if (!pData.error) {
+        if (pData.permalink) {
+          permalink = pData.permalink;
+        } else if (pData.shortcode) {
+          permalink = `https://www.instagram.com/p/${pData.shortcode}/`;
+        }
+      }
+    } catch (err) {
+      console.error('[instagram] Error al obtener permalink:', err);
+    }
+
+    console.log('[instagram] 🔗 Permalink:', permalink);
+    return { id: publishData.id, permalink };
   } catch (error: any) {
     console.error('[instagram] ❌ Error en uploadToInstagram:', error.message);
     throw error;

@@ -76,14 +76,30 @@ export async function POST(request: Request) {
     );
 
     // 4. Update Job on Success
+    const videoId = result.id;
+    // La firma de uploadToInstagram la acabamos de actualizar para devolver permalink
+    const videoUrl = (result as any).permalink || `https://www.instagram.com/p/${videoId}`;
+
+    console.log('[publish/instagram] 🆔 Video ID guardado:', videoId);
+    console.log('[publish/instagram] 🔗 URL:', videoUrl);
+
+    // Leer platform_video_url existente y combinar con Instagram
+    const { data: currentJob } = await supabase.from('jobs').select('platform_video_url').eq('id', jobId).single();
+    let existingUrls: Record<string, string> = {};
+    if (currentJob?.platform_video_url) {
+      try { existingUrls = JSON.parse(currentJob.platform_video_url); } catch {}
+    }
+    const updatedUrls = { ...existingUrls, instagram: videoUrl };
+
     await supabase.from('jobs').update({
       status: 'done',
-      platform_video_id: result.id,
+      platform_video_id: videoId, // retrocompatibilidad
+      platform_video_url: JSON.stringify(updatedUrls),
       error_message: null
     }).eq('id', jobId);
 
-    console.log('[publish/instagram] ✅ Job actualizado a done. platform_video_id:', result.id);
-    return NextResponse.json({ success: true, platform_video_id: result.id });
+    console.log('[publish/instagram] ✅ Job actualizado a done. platform_video_id:', videoId);
+    return NextResponse.json({ success: true, platform_video_id: videoId, videoUrl });
 
   } catch (error: any) {
     console.error('[publish/instagram] ❌ Error:', error.message);
