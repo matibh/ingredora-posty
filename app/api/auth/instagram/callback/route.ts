@@ -16,13 +16,13 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=missing_client`);
   }
 
-  const metaAppId = process.env.META_APP_ID!;
-  const metaAppSecret = process.env.META_APP_SECRET!;
+  const instagramAppId = process.env.INSTAGRAM_APP_ID!;
+  const instagramAppSecret = process.env.INSTAGRAM_APP_SECRET!;
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/instagram/callback`;
 
   try {
     // 1. Get short-lived token
-    const tokenResponse = await fetch(`https://graph.facebook.com/v22.0/oauth/access_token?client_id=${metaAppId}&redirect_uri=${redirectUri}&client_secret=${metaAppSecret}&code=${code}`);
+    const tokenResponse = await fetch(`https://graph.facebook.com/v22.0/oauth/access_token?client_id=${instagramAppId}&redirect_uri=${redirectUri}&client_secret=${instagramAppSecret}&code=${code}`);
     const tokens = await tokenResponse.json();
 
     if (tokens.error) {
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     const shortLivedToken = tokens.access_token;
 
     // 2. Exchange for long-lived token
-    const longLivedResponse = await fetch(`https://graph.facebook.com/v22.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${metaAppId}&client_secret=${metaAppSecret}&fb_exchange_token=${shortLivedToken}`);
+    const longLivedResponse = await fetch(`https://graph.facebook.com/v22.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${instagramAppId}&client_secret=${instagramAppSecret}&fb_exchange_token=${shortLivedToken}`);
     const longLivedTokens = await longLivedResponse.json();
 
     if (longLivedTokens.error) {
