@@ -316,7 +316,8 @@ export default function UploadPage() {
     
     if (privacy === 'Programado') {
       if (!scheduledFor) return setError('Por favor elige una fecha y hora para la publicación.')
-      if (new Date(scheduledFor) <= new Date()) return setError('La fecha de programación debe ser en el futuro.')
+      const minDate = new Date(Date.now() + 10 * 60000)
+      if (new Date(scheduledFor) < minDate) return setError('La fecha de programación debe ser al menos 10 minutos en el futuro (requerido por Facebook y otras plataformas).')
     }
     
     // Validate that at least one account is selected
@@ -438,26 +439,31 @@ export default function UploadPage() {
 
       console.log('[upload] 📦 Cuentas por cliente:', accountsByClient)
 
-      // Para cada cliente, verificar si tiene YouTube seleccionado
+      // Para cada cliente, verificar qué plataformas OAuth están seleccionadas
+      const OAUTH_PLATFORMS = ['youtube', 'facebook', 'instagram']
       for (const [clientId, accounts] of Object.entries(accountsByClient)) {
-        const hasYoutube = accounts.some(a => a.platform === 'youtube')
+        const selectedOauthPlatforms = OAUTH_PLATFORMS.filter(platform => 
+          accounts.some(a => a.platform === platform)
+        )
         
-        console.log(`[upload] 📦 Clientes con YouTube (cliente ${clientId}):`, hasYoutube)
+        console.log(`[upload] 📦 Plataformas seleccionadas (cliente ${clientId}):`, selectedOauthPlatforms)
         
-        if (!hasYoutube) {
+        if (selectedOauthPlatforms.length === 0) {
           const client = clients.find(c => c.id === clientId)
-          throw new Error(`El cliente ${client?.name || clientId} no tiene YouTube conectado o seleccionado.`)
+          throw new Error(`El cliente ${client?.name || clientId} no tiene ninguna plataforma OAuth válida seleccionada.`)
         }
 
-        // Llamar a /api/publish/youtube con este clientId y el jobId
-        console.log(`[upload] 🚀 Publicando en YouTube para cliente ${clientId}`)
-        publishPromises.push(
-          fetch('/api/publish/youtube', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jobId, clientId }),
-          })
-        )
+        // Llamar a /api/publish/[platform] por cada plataforma seleccionada
+        for (const platform of selectedOauthPlatforms) {
+          console.log(`[upload] 🚀 Publicando en ${platform} para cliente ${clientId}`)
+          publishPromises.push(
+            fetch(`/api/publish/${platform}`, {
+              method:  'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jobId, clientId }),
+            })
+          )
+        }
       }
 
       if (publishPromises.length === 0) {

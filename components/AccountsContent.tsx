@@ -135,10 +135,10 @@ export default function AccountsContent() {
     }
   }
 
-  const handleDisconnectYouTube = async (clientId: string) => {
-    if (!confirm(`¿Desconectar la cuenta de YouTube?`)) return
+  const handleDisconnectOAuth = async (clientId: string, platform: string) => {
+    if (!confirm(`¿Desconectar la cuenta de ${platform}?`)) return
     try {
-      const res = await fetch(`/api/auth/youtube?clientId=${clientId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/auth/${platform}?clientId=${clientId}`, { method: 'DELETE' })
       if (!res.ok) {
         const d = await res.json()
         throw new Error(d.error)
@@ -244,8 +244,9 @@ export default function AccountsContent() {
                   <div className="border-t border-[#334155] p-6 bg-[#1d2530]">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {PLATFORMS.map(platform => {
-                        const connectedAccount = platform.id === 'youtube' 
-                          ? socialTokens.find(acc => acc.platform === 'youtube')
+                        const isOAuthPlatform = ['youtube', 'facebook', 'instagram'].includes(platform.id);
+                        const connectedAccount = isOAuthPlatform
+                          ? socialTokens.find(acc => acc.platform === platform.id)
                           : accounts.find(acc => acc.platform === platform.id);
                           
                         const isConnected = !!connectedAccount
@@ -299,8 +300,8 @@ export default function AccountsContent() {
                               {isConnected && connectedAccount ? (
                                 <button
                                   onClick={() => {
-                                    if (platform.id === 'youtube') {
-                                      handleDisconnectYouTube(client.id)
+                                    if (isOAuthPlatform) {
+                                      handleDisconnectOAuth(client.id, platform.id)
                                     } else {
                                       handleDisconnect(client.id, connectedAccount.id, platform.name)
                                     }
@@ -310,12 +311,12 @@ export default function AccountsContent() {
                                   Desconectar
                                 </button>
                               ) : (
-                                platform.id === 'youtube' ? (
+                                isOAuthPlatform ? (
                                   <a
-                                    href={`/api/auth/youtube?clientId=${client.id}`}
+                                    href={`/api/auth/${platform.id}?clientId=${client.id}`}
                                     className="w-full block text-center py-2 rounded-lg text-xs font-bold text-white transition-opacity hover:bg-[#155b76] bg-[#1A6B8A]"
                                   >
-                                    Conectar YouTube
+                                    Conectar {platform.name}
                                   </a>
                                 ) : (
                                   <button

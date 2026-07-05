@@ -298,35 +298,60 @@ export default function JobStatusPage() {
               <div className="p-8 rounded-3xl shadow-md" style={{ backgroundColor: '#232B36', border: '1px solid #334155' }}>
                 <h3 className="text-lg font-bold mb-5 tracking-tight" style={{ color: '#F0F4F8' }}>Publicado en</h3>
                 <div className="flex flex-col gap-3">
-                  {/* YouTube — con enlace real si hay platform_video_id */}
+                  {/* Link universal si hay un platform_video_id */}
                   {job.platform_video_id ? (
-                    <a
-                      href={`https://www.youtube.com/watch?v=${job.platform_video_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
-                      style={{ backgroundColor: '#181E26', border: '1px solid #EF444440' }}
-                    >
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm flex-shrink-0 shadow-md" style={{ backgroundColor: '#EF4444' }}>
-                        Y
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold" style={{ color: '#F0F4F8' }}>YouTube</p>
-                        <p className="text-xs font-mono truncate" style={{ color: '#A8B8C8' }}>youtu.be/{job.platform_video_id}</p>
-                      </div>
-                      <svg className="w-4 h-4 flex-shrink-0" style={{ color: '#EF4444' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
+                    <>
+                      <a
+                        href={`https://www.youtube.com/watch?v=${job.platform_video_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                        style={{ backgroundColor: '#181E26', border: '1px solid #EF444440' }}
+                      >
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm flex-shrink-0 shadow-md" style={{ backgroundColor: '#EF4444' }}>Y</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold" style={{ color: '#F0F4F8' }}>YouTube</p>
+                          <p className="text-xs font-mono truncate" style={{ color: '#A8B8C8' }}>youtu.be/{job.platform_video_id}</p>
+                        </div>
+                      </a>
+                      
+                      <a
+                        href={`https://www.facebook.com/${job.platform_video_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                        style={{ backgroundColor: '#181E26', border: '1px solid #3B82F640' }}
+                      >
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm flex-shrink-0 shadow-md" style={{ backgroundColor: '#3B82F6' }}>F</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold" style={{ color: '#F0F4F8' }}>Facebook</p>
+                          <p className="text-xs font-mono truncate" style={{ color: '#A8B8C8' }}>facebook.com/{job.platform_video_id}</p>
+                        </div>
+                      </a>
+
+                      <a
+                        href={`https://www.instagram.com/p/${job.platform_video_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-4 rounded-xl transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+                        style={{ backgroundColor: '#181E26', border: '1px solid #E1306C40' }}
+                      >
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm flex-shrink-0 shadow-md" style={{ backgroundColor: '#E1306C' }}>I</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold" style={{ color: '#F0F4F8' }}>Instagram</p>
+                          <p className="text-xs font-mono truncate" style={{ color: '#A8B8C8' }}>ID: {job.platform_video_id}</p>
+                        </div>
+                      </a>
+                    </>
                   ) : (
                     <div
                       className="flex items-center gap-3 p-4 rounded-xl opacity-50"
                       style={{ backgroundColor: '#181E26', border: '1px solid #334155' }}
                     >
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm flex-shrink-0" style={{ backgroundColor: '#EF4444' }}>Y</div>
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm flex-shrink-0" style={{ backgroundColor: '#334155' }}>?</div>
                       <div>
-                        <p className="text-sm font-bold" style={{ color: '#F0F4F8' }}>YouTube</p>
-                        <p className="text-xs" style={{ color: '#6A7E94' }}>No se publicó en YouTube</p>
+                        <p className="text-sm font-bold" style={{ color: '#F0F4F8' }}>No hay enlace</p>
+                        <p className="text-xs" style={{ color: '#6A7E94' }}>Aún no se ha publicado en ninguna plataforma</p>
                       </div>
                     </div>
                   )}
