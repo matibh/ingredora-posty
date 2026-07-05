@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { uploadToFacebook } from '@/lib/facebook';
+import { refreshMetaToken } from '@/lib/meta';
 
 export async function POST(request: Request) {
   try {
@@ -43,10 +44,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Token de Facebook no encontrado' }, { status: 400 });
     }
 
-    // Verify token expiration loosely
-    if (tokenData.expires_at && new Date(tokenData.expires_at) < new Date()) {
-       await supabase.from('jobs').update({ status: 'error', error_message: 'El token de Facebook ha expirado' }).eq('id', jobId);
-       return NextResponse.json({ error: 'El token de Facebook ha expirado' }, { status: 400 });
+    // Verify token expiration and refresh if needed
+    let accessToken = tokenData.access_token;
+    if (tokenData.expires_at) {
+       const expiresAtDate = new Date(tokenData.expires_at);
+       if (expiresAtDate < new Date()) {
+          await supabase.from('jobs').update({ status: 'error', error_message: 'El token de Facebook ha expirado. Reconectá la cuenta.' }).eq('id', jobId);
+          return NextResponse.json({ error: 'El token de Facebook ha expirado' }, { status: 400 });
+       }
+       
+       // Si expira en menos de 7 días, renovarlo
+       const daysUntilExpiry = (expiresAtDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+       if (daysUntilExpiry < 7) {
+         try {
+           console.log(`[publish/facebook] 🔄 Token de Facebook expira en ${daysUntilExpiry.toFixed(1)} días. Renovando...`);
+           const { access_token: new_token, expires_at: new_expires } = await refreshMetaToken(
+             accessToken,
+             process.env.META_APP_ID!,
+             process.env.META_APP_SECRET!
+           );
+           
+           accessToken = new_token;
+           await supabase
+             .from('social_tokens')
+             .update({ access_token: new_token, expires_at: new_expires })
+             .eq('id', tokenData.id);
+             
+           console.log(`[publish/facebook] ✅ Token renovado. Nueva expiración: ${new_expires}`);
+         } catch (refreshErr) {
+           console.error('[publish/facebook] ❌ Error renovando token:', refreshErr);
+           // Si falla la renovación pero el token actual aún sirve, podemos intentar continuar.
+           // Pero si queremos ser estrictos o notificar al usuario:
+           // await supabase.from('jobs').update({ status: 'error', error_message: 'No se pudo renovar la conexión de Facebook. Reconectá la cuenta.' }).eq('id', jobId);
+           // return NextResponse.json({ error: 'Error renovando token de Facebook' }, { status: 400 });
+         }
+       }
     }
 
     // Format title and description (combine tags if needed, or put them in description)
@@ -60,7 +92,7 @@ export async function POST(request: Request) {
     }
 
     const result = await uploadToFacebook(
-      tokenData.access_token,
+      accessToken,
       job.video_url,
       job.title || '',
       finalDescription,

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { uploadToInstagram } from '@/lib/instagram';
+import { refreshMetaToken } from '@/lib/meta';
 
 export async function POST(request: Request) {
   let jobId: string | undefined;
@@ -53,10 +54,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Token de Instagram no encontrado' }, { status: 400 });
     }
 
-    // Verify token expiration loosely
-    if (tokenData.expires_at && new Date(tokenData.expires_at) < new Date()) {
-       await supabase.from('jobs').update({ status: 'error', error_message: 'El token de Instagram ha expirado. Reconectá la cuenta.' }).eq('id', jobId);
-       return NextResponse.json({ error: 'El token de Instagram ha expirado' }, { status: 400 });
+    // Verify token expiration and refresh if needed
+    let accessToken = tokenData.access_token;
+    if (tokenData.expires_at) {
+       const expiresAtDate = new Date(tokenData.expires_at);
+       if (expiresAtDate < new Date()) {
+          await supabase.from('jobs').update({ status: 'error', error_message: 'El token de Instagram ha expirado. Reconectá la cuenta.' }).eq('id', jobId);
+          return NextResponse.json({ error: 'El token de Instagram ha expirado' }, { status: 400 });
+       }
+       
+       // Si expira en menos de 7 días, renovarlo
+       const daysUntilExpiry = (expiresAtDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+       if (daysUntilExpiry < 7) {
+         try {
+           console.log(`[publish/instagram] 🔄 Token de Instagram expira en ${daysUntilExpiry.toFixed(1)} días. Renovando...`);
+           const { access_token: new_token, expires_at: new_expires } = await refreshMetaToken(
+             accessToken,
+             process.env.INSTAGRAM_APP_ID!,
+             process.env.INSTAGRAM_APP_SECRET!
+           );
+           
+           accessToken = new_token;
+           await supabase
+             .from('social_tokens')
+             .update({ access_token: new_token, expires_at: new_expires })
+             .eq('id', tokenData.id);
+             
+           console.log(`[publish/instagram] ✅ Token renovado. Nueva expiración: ${new_expires}`);
+         } catch (refreshErr) {
+           console.error('[publish/instagram] ❌ Error renovando token:', refreshErr);
+         }
+       }
     }
 
     // Format caption
@@ -69,7 +97,7 @@ export async function POST(request: Request) {
 
     // 3. Upload to Instagram (includes polling for container readiness)
     const result = await uploadToInstagram(
-      tokenData.access_token,
+      accessToken,
       job.video_url,
       finalCaption,
       tokenData.platform_user_id
