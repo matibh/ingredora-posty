@@ -105,7 +105,7 @@ export async function GET(request: Request) {
 
     const { error: insertError } = await supabase
       .from('social_tokens')
-      .upsert(payload, { onConflict: 'client_id,platform' }); 
+      .upsert(payload, { onConflict: 'user_id,platform,platform_user_id' }); 
 
     if (insertError) {
       console.error('Supabase Upsert Error:', insertError);

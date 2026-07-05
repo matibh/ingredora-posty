@@ -95,27 +95,13 @@ export async function GET(request: Request) {
       expires_at: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000).toISOString() : null,
     };
 
-    // NOTA: Para que un usuario pueda tener cuentas separadas por cliente, el UNIQUE debería ser (client_id, platform) o (user_id, platform, client_id)
-    // El usuario sugirió (user_id, platform, platform_user_id), pero si se usa el mismo canal en 2 clientes fallaría.
-    // Usaremos el onConflict tal como la BD lo tenga configurado, se recomienda client_id,platform
     const { error: insertError } = await supabase
       .from('social_tokens')
-      .upsert(payload, { onConflict: 'client_id,platform' }); 
+      .upsert(payload, { onConflict: 'user_id,platform,platform_user_id' }); 
 
     if (insertError) {
       console.error('Supabase Upsert Error Object:', JSON.stringify(insertError, null, 2));
-      // Fallback intentando el onConflict sugerido por el usuario en caso de error de constraint
-      if (insertError.code === '23505' || insertError.message.includes('unique')) {
-         const { error: insertError2 } = await supabase
-          .from('social_tokens')
-          .upsert(payload, { onConflict: 'user_id,platform,platform_user_id' });
-         
-         if (insertError2) {
-            return NextResponse.json({ error: 'Error al guardar los tokens en Supabase', details: insertError2 }, { status: 500 });
-         }
-      } else {
-        return NextResponse.json({ error: 'Error al guardar los tokens en Supabase', details: insertError }, { status: 500 });
-      }
+      return NextResponse.json({ error: 'Error al guardar los tokens en Supabase', details: insertError }, { status: 500 });
     }
 
     const cookieStoreDelete = await cookies();
