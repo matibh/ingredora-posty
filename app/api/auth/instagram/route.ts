@@ -7,6 +7,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const clientIdParam = searchParams.get('clientId');
 
+    console.log('[instagram/route] 🚀 Iniciando flujo OAuth de Instagram');
+    console.log('[instagram/route] 🔑 App ID usado:', process.env.INSTAGRAM_APP_ID);
+
     if (!clientIdParam) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=missing_client`);
     }
@@ -21,10 +24,14 @@ export async function GET(request: Request) {
 
     const instagramAppId = process.env.INSTAGRAM_APP_ID;
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/instagram/callback`;
-    const scope = encodeURIComponent('pages_manage_posts pages_read_engagement pages_show_list instagram_business_basic instagram_business_content_publish');
-    
-    // Instagram OAuth dialog URL
+
+    // Scope para Instagram OAuth (solo permisos de IG, no de Facebook Pages)
+    const scope = encodeURIComponent('instagram_business_basic instagram_business_content_publish');
+
+    // Instagram OAuth dialog URL (instagram.com, NO facebook.com)
     const authUrl = `https://www.instagram.com/oauth/authorize?client_id=${instagramAppId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
+
+    console.log('[instagram/route] 🔗 URL de autorización:', authUrl);
 
     return NextResponse.redirect(authUrl);
   } catch (error) {

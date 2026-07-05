@@ -8,6 +8,11 @@ export async function GET(request: Request) {
   const cookieStore = await cookies();
   const clientIdCookie = cookieStore.get('instagram_connect_client_id')?.value;
 
+  console.log('[instagram/callback] 🚀 Callback recibido');
+  console.log('[instagram/callback] 🔑 App ID usado:', process.env.INSTAGRAM_APP_ID);
+  console.log('[instagram/callback] 📥 Código recibido:', code ? 'presente' : 'FALTA');
+  console.log('[instagram/callback] 🍪 Cookie clientId:', clientIdCookie || 'FALTA');
+
   if (!code) {
     return NextResponse.json({ error: 'No code provided' }, { status: 400 });
   }
@@ -21,68 +26,69 @@ export async function GET(request: Request) {
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/instagram/callback`;
 
   try {
-    // 1. Get short-lived token
-    const tokenResponse = await fetch(`https://graph.facebook.com/v22.0/oauth/access_token?client_id=${instagramAppId}&redirect_uri=${redirectUri}&client_secret=${instagramAppSecret}&code=${code}`);
+    // 1. Intercambiar código por token de corta duración usando la API de Instagram
+    // IMPORTANTE: cuando el código viene de instagram.com/oauth/authorize,
+    // el intercambio se hace en api.instagram.com (NO graph.facebook.com)
+    console.log('[instagram/callback] 🔄 Intercambiando código por token en api.instagram.com...');
+    const tokenBody = new URLSearchParams({
+      client_id: instagramAppId,
+      client_secret: instagramAppSecret,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+      code,
+    });
+
+    const tokenResponse = await fetch('https://api.instagram.com/oauth/access_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: tokenBody.toString(),
+    });
     const tokens = await tokenResponse.json();
 
-    if (tokens.error) {
-      console.error('Meta OAuth error:', tokens.error);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=meta_oauth_error`);
+    console.log('[instagram/callback] 🔄 Respuesta de token:', JSON.stringify(tokens));
+
+    if (tokens.error_type || tokens.error_message || !tokens.access_token) {
+      console.error('[instagram/callback] ❌ Error en token:', tokens);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=instagram_token_error`);
     }
 
     const shortLivedToken = tokens.access_token;
+    const igUserId = tokens.user_id?.toString();
 
-    // 2. Exchange for long-lived token
-    const longLivedResponse = await fetch(`https://graph.facebook.com/v22.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${instagramAppId}&client_secret=${instagramAppSecret}&fb_exchange_token=${shortLivedToken}`);
+    // 2. Intercambiar por token de larga duración (60 días) via graph.instagram.com
+    console.log('[instagram/callback] 🔄 Obteniendo token de larga duración...');
+    const longLivedResponse = await fetch(
+      `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${instagramAppSecret}&access_token=${shortLivedToken}`
+    );
     const longLivedTokens = await longLivedResponse.json();
 
+    console.log('[instagram/callback] 🔄 Respuesta token largo:', JSON.stringify(longLivedTokens));
+
     if (longLivedTokens.error) {
-      console.error('Meta Long Lived Token error:', longLivedTokens.error);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=meta_exchange_error`);
+      console.error('[instagram/callback] ❌ Error en token largo:', longLivedTokens.error);
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=instagram_exchange_error`);
     }
 
     const longLivedToken = longLivedTokens.access_token;
     const expiresInSeconds = longLivedTokens.expires_in || (60 * 24 * 60 * 60);
 
-    // 3. Get User Accounts (Pages) and their connected Instagram Business Accounts
-    const accountsResponse = await fetch(`https://graph.facebook.com/v22.0/me/accounts?fields=id,name,instagram_business_account&access_token=${longLivedToken}`);
-    const accountsData = await accountsResponse.json();
-
-    if (accountsData.error || !accountsData.data || accountsData.data.length === 0) {
-      console.error('Meta accounts error or no pages found:', accountsData);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=no_facebook_pages`);
-    }
-
-    // Find the first page with an instagram_business_account
-    const pageWithIg = accountsData.data.find((page: any) => page.instagram_business_account);
-
-    if (!pageWithIg) {
-      console.error('No Instagram Business Account connected to any Facebook Page');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=no_instagram_account`);
-    }
-
-    const pageAccessToken = pageWithIg.access_token; // Wait, me/accounts doesn't always return access_token if fields are specified? 
-    // Actually, when specifying ?fields=id,name,instagram_business_account, it might drop access_token unless explicitly requested!
-    // I should fetch fields=id,name,access_token,instagram_business_account
-    
-    // So let me fetch with access_token included in fields
-    const accountsResponseWithToken = await fetch(`https://graph.facebook.com/v22.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longLivedToken}`);
-    const accountsDataWithToken = await accountsResponseWithToken.json();
-
-    const pageWithIgWithToken = accountsDataWithToken.data.find((page: any) => page.instagram_business_account);
-
-    if (!pageWithIgWithToken) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=no_instagram_account`);
-    }
-
-    const igUserId = pageWithIgWithToken.instagram_business_account.id;
-    const finalPageAccessToken = pageWithIgWithToken.access_token;
-
-    // Optional: Get IG username using the igUserId
-    const igInfoResponse = await fetch(`https://graph.facebook.com/v22.0/${igUserId}?fields=username,name&access_token=${finalPageAccessToken}`);
+    // 3. Obtener info del usuario de Instagram
+    console.log('[instagram/callback] 👤 Obteniendo info del usuario IG...');
+    const igInfoResponse = await fetch(
+      `https://graph.instagram.com/v22.0/me?fields=id,username,name&access_token=${longLivedToken}`
+    );
     const igInfo = await igInfoResponse.json();
-    const igUsername = igInfo.username || pageWithIgWithToken.name;
+
+    console.log('[instagram/callback] 👤 Info usuario IG:', JSON.stringify(igInfo));
+
+    const igUsername = igInfo.username || `user_${igUserId}`;
     const igName = igInfo.name || igUsername;
+    const finalIgUserId = igInfo.id || igUserId;
+
+    if (!finalIgUserId) {
+      console.error('[instagram/callback] ❌ No se pudo obtener el ID de Instagram');
+      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=no_instagram_account`);
+    }
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -95,29 +101,32 @@ export async function GET(request: Request) {
       user_id: user.id,
       platform: 'instagram',
       client_id: clientIdCookie,
-      platform_user_id: igUserId,
+      platform_user_id: finalIgUserId,
       username: igUsername,
       page_name: igName,
-      access_token: finalPageAccessToken,
+      access_token: longLivedToken,
       refresh_token: null,
       expires_at: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
     };
 
+    console.log('[instagram/callback] 💾 Guardando token en Supabase para IG user:', finalIgUserId);
+
     const { error: insertError } = await supabase
       .from('social_tokens')
-      .upsert(payload, { onConflict: 'user_id,platform,platform_user_id' }); 
+      .upsert(payload, { onConflict: 'user_id,platform,platform_user_id' });
 
     if (insertError) {
-      console.error('Supabase Upsert Error:', insertError);
+      console.error('[instagram/callback] ❌ Supabase Upsert Error:', insertError);
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=database_error`);
     }
 
     const cookieStoreDelete = await cookies();
     cookieStoreDelete.delete('instagram_connect_client_id');
 
+    console.log('[instagram/callback] ✅ Instagram conectado exitosamente');
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?success=instagram_connected`);
   } catch (error) {
-    console.error('Instagram callback error:', error);
+    console.error('[instagram/callback] ❌ Error inesperado:', error);
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=internal_server_error`);
   }
 }
