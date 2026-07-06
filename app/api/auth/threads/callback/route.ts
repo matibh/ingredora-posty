@@ -43,7 +43,8 @@ export async function GET(request: Request) {
     });
     const tokens = await tokenResponse.json();
 
-    console.log('[threads/callback] 🔄 Respuesta de token:', JSON.stringify(tokens));
+    console.log('[threads/callback] 📦 Respuesta de token:', JSON.stringify(tokens, null, 2));
+    console.log('[threads/callback] 🔑 Token obtenido:', tokens.access_token ? 'SÍ' : 'NO');
 
     if (tokens.error_type || tokens.error_message || !tokens.access_token) {
       console.error('[threads/callback] ❌ Error en token:', tokens);
