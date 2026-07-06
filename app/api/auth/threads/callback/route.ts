@@ -85,21 +85,23 @@ export async function GET(request: Request) {
     console.log('[threads/callback] ✅ Token obtenido');
 
     // 3. Obtener info del usuario de Threads
+    // 3. Obtener info del usuario de Threads
     console.log('[threads/callback] 👤 Obteniendo info del usuario Threads...');
-    const threadsInfoResponse = await fetch(
-      `https://graph.threads.net/v22.0/me?fields=id,username&access_token=${longLivedToken}`
-    );
-    const threadsInfo = await threadsInfoResponse.json();
+    const meResponse = await fetch('https://graph.threads.net/v22.0/me?fields=id,username', {
+      headers: { Authorization: `Bearer ${longLivedToken}` }
+    });
+    const meData = await meResponse.json();
+    console.log('[threads/callback] 👤 Datos de me:', JSON.stringify(meData, null, 2));
 
-    console.log('[threads/callback] 👤 Info usuario Threads:', JSON.stringify(threadsInfo));
-
-    const finalThreadsUserId = threadsInfo.id;
-    const threadsUsername = threadsInfo.username || `user_${finalThreadsUserId}`;
-
-    if (!finalThreadsUserId) {
-      console.error('[threads/callback] ❌ No se pudo obtener el ID de Threads');
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=no_threads_account`);
+    if (!meData.id) {
+      console.error('[threads/callback] ❌ No se obtuvo perfil de Threads:', meData);
+      return NextResponse.redirect(
+        `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=no_threads_account`
+      );
     }
+
+    const finalThreadsUserId = meData.id;
+    const threadsUsername = meData.username || `user_${finalThreadsUserId}`;
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

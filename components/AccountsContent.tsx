@@ -174,6 +174,26 @@ export default function AccountsContent() {
         </p>
       </div>
 
+      {searchParams.get('error') === 'no_threads_account' && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl mb-6 shadow-sm">
+          <p className="font-bold text-base flex items-center gap-2">
+            ⚠️ No se pudo conectar Threads
+          </p>
+          <p className="text-sm mt-2 font-medium">
+            La cuenta de Instagram que intentaste conectar no tiene un perfil de Threads asociado, o no es una cuenta profesional vinculada correctamente. Para usar Threads en Posty, necesitas:
+          </p>
+          <ul className="text-sm list-disc list-inside mt-2 font-medium opacity-90">
+            <li>Una cuenta de Instagram profesional (de Creador o Empresa).</li>
+            <li>Un perfil de Threads público vinculado a esa cuenta de Instagram.</li>
+          </ul>
+          <p className="text-sm mt-3">
+            <a href="https://help.instagram.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 underline font-bold">
+              Más información sobre cómo vincular Threads con Instagram
+            </a>
+          </p>
+        </div>
+      )}
+
       {loading ? (
         <AccountsSkeleton />
       ) : clients.length === 0 ? (
