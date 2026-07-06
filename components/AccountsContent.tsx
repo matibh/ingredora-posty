@@ -244,7 +244,7 @@ export default function AccountsContent() {
                   <div className="border-t border-[#334155] p-6 bg-[#1d2530]">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {PLATFORMS.map(platform => {
-                        const isOAuthPlatform = ['youtube', 'facebook', 'instagram'].includes(platform.id);
+                        const isOAuthPlatform = ['youtube', 'facebook', 'instagram', 'threads'].includes(platform.id);
                         const connectedAccount = isOAuthPlatform
                           ? socialTokens.find(acc => acc.platform === platform.id)
                           : accounts.find(acc => acc.platform === platform.id);

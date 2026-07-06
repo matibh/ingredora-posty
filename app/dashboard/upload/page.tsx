@@ -183,17 +183,18 @@ export default function UploadPage() {
       if (t.expires_at) {
         accessExpired = new Date(t.expires_at) <= now
       }
-      const hasRefresh = !!t.refresh_token
+      const isMetaPlatform = ['facebook', 'instagram', 'threads'].includes(t.platform)
+      const hasRefresh = isMetaPlatform || !!t.refresh_token
 
       // Log de diagnóstico (consola del navegador)
       console.log(
         `[Token] ${t.platform} «${t.username}»`,
         `| expires_at: ${t.expires_at ?? 'null'}`,
         `| accessExpired: ${accessExpired}`,
-        `| hasRefreshToken: ${hasRefresh}`,
+        `| hasRefreshToken (or Meta): ${hasRefresh}`,
       )
 
-      // ⚠️ Asegurar que se incluyen los tokens si tienen refresh_token,
+      // ⚠️ Asegurar que se incluyen los tokens si tienen refresh_token o son Meta,
       // incluso si están expirados.
       if (accessExpired && !hasRefresh) {
         console.warn(`  ⚠️ Token sin refresh_token y expirado — se omite`)

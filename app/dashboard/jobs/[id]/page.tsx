@@ -36,6 +36,7 @@ const SOCIALS = [
   { key: 'instagram', label: 'Instagram', dot: '#EC4899', icon: 'I' },
   { key: 'facebook',  label: 'Facebook',  dot: '#3B82F6', icon: 'F' },
   { key: 'tiktok',    label: 'TikTok',    dot: '#94A3B8', icon: 'T' },
+  { key: 'threads',   label: 'Threads',   dot: '#FFFFFF', icon: '@' },
 ]
 
 export default function JobStatusPage() {
@@ -301,7 +302,7 @@ export default function JobStatusPage() {
                 <div className="flex flex-col gap-3">
                   {(() => {
                     // Parsear URLs de plataformas desde platform_video_url (JSON) o fallback a platform_video_id (YouTube)
-                    let urls: { youtube?: string; facebook?: string; instagram?: string } = {}
+                    let urls: { youtube?: string; facebook?: string; instagram?: string; threads?: string } = {}
                     if (job.platform_video_url) {
                       try { urls = JSON.parse(job.platform_video_url) } catch {}
                     }
@@ -314,6 +315,7 @@ export default function JobStatusPage() {
                       urls.youtube   && { label: 'YouTube',   url: urls.youtube,   bg: '#EF4444', border: '#EF444440', icon: 'Y', display: urls.youtube.replace('https://','') },
                       urls.facebook  && { label: 'Facebook',  url: urls.facebook,  bg: '#3B82F6', border: '#3B82F640', icon: 'F', display: urls.facebook.replace('https://','') },
                       urls.instagram && { label: 'Instagram', url: urls.instagram, bg: '#E1306C', border: '#E1306C40', icon: 'I', display: urls.instagram.replace('https://','') },
+                      urls.threads   && { label: 'Threads',   url: urls.threads,   bg: '#000000', border: '#334155', icon: '@', display: urls.threads.replace('https://','') },
                     ].filter(Boolean) as { label: string; url: string; bg: string; border: string; icon: string; display: string }[]
 
                     if (platforms.length === 0) return (
