@@ -926,13 +926,7 @@ export default function UploadPage() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                 </svg>
-                {progress < 65
-                  ? 'Subiendo video a Posty...'
-                  : progress < 80
-                  ? 'Enviando a YouTube...'
-                  : progress < 95
-                  ? 'YouTube procesando el video...'
-                  : 'Finalizando...'}
+                📤 Subiendo y publicando...
               </span>
               <span style={{ color: '#1A6B8A' }}>{progress}%</span>
             </div>
@@ -958,7 +952,7 @@ export default function UploadPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
             </svg>
           )}
-          {isUploading ? 'Procesando...' : 'Publicar'}
+          {isUploading ? '📤 Subiendo y publicando...' : 'Publicar'}
         </button>
       </main>
     </div>
