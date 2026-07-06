@@ -1,19 +1,17 @@
-const MAX_POLL_ATTEMPTS = 20;
+const MAX_POLL_ATTEMPTS = 10;  // 10 intentos × 5s = 50 segundos máx
 const POLL_INTERVAL_MS = 5000;
 
 async function waitForContainerReady(
   creationId: string,
   accessToken: string,
-  threadsUserId: string
 ): Promise<void> {
   for (let attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
 
-    // Token en header Authorization (no en query param) para evitar conflictos con ?fields=
-    const statusUrl = `https://graph.threads.net/v1.0/${creationId}?fields=id,status,status_code`;
+    // Threads usa 'status' (no 'status_code' — ese es de Instagram)
+    const statusUrl = `https://graph.threads.net/v1.0/${creationId}?fields=id,status,error_message`;
 
     console.log(`[threads/poll] ⏳ Intento ${attempt}/${MAX_POLL_ATTEMPTS} — URL: ${statusUrl}`);
-    console.log(`[threads/poll] 🔑 Token (primeros 20 chars): ${accessToken?.substring(0, 20)}`);
 
     const statusResponse = await fetch(statusUrl, {
       headers: { Authorization: `Bearer ${accessToken}` }
@@ -23,42 +21,52 @@ async function waitForContainerReady(
 
     const statusData = await statusResponse.json();
     console.log(`[threads/poll] 📊 Respuesta completa:`, JSON.stringify(statusData, null, 2));
-    console.log(`[threads/poll] 📊 status_code presente:`, !!statusData?.status_code);
-    console.log(`[threads/poll] 📊 status presente:`, !!statusData?.status);
+    console.log(`[threads/poll] 📊 status:`, statusData?.status);
+    console.log(`[threads/poll] 📊 error_message:`, statusData?.error_message);
     console.log(`[threads/poll] 📊 id presente:`, !!statusData?.id);
 
     if (statusData.error) {
       throw new Error(`Error consultando estado del contenedor: ${statusData.error.message}`);
     }
 
-    // Acceso seguro — la API de Threads puede devolver 'status' o 'status_code'
-    const statusCode = statusData?.status_code || statusData?.status;
+    const status = statusData?.status;
 
-    if (!statusCode) {
-      // Si no hay status_code ni status pero sí hay id → ya está FINISHED
-      if (statusData?.id) {
-        console.log(`[threads/poll] ⚠️ No hay status_code pero hay id (${statusData.id}) — asumiendo FINISHED`);
-        return;
-      }
-      console.log(`[threads/poll] ⚠️ Respuesta sin status_code/status/id, esperando siguiente intento...`);
-      continue;
-    }
-
-    if (statusCode === 'FINISHED') {
+    if (status === 'FINISHED') {
       console.log('[threads/poll] ✅ Contenedor listo para publicar');
       return;
     }
 
-    if (statusCode === 'ERROR' || statusCode === 'EXPIRED') {
-      throw new Error(`Procesamiento del video falló. Estado de Threads: ${statusCode}`);
+    if (status === 'PUBLISHED') {
+      // Caso raro: ya fue publicado directamente
+      console.log('[threads/poll] ✅ Contenedor ya publicado directamente');
+      return;
     }
 
-    // IN_PROGRESS u otros estados: seguir esperando
-    console.log(`[threads/poll] ⏳ Estado: ${statusCode}, esperando...`);
+    if (status === 'ERROR') {
+      throw new Error(`Error en el contenedor de Threads: ${statusData?.error_message || 'Error desconocido'}`);
+    }
+
+    if (status === 'EXPIRED') {
+      throw new Error('El contenedor expiró (24 horas sin publicar). Crea un nuevo video e inténtalo de nuevo.');
+    }
+
+    if (!status) {
+      // Sin campo status — si hay id, asumimos FINISHED
+      if (statusData?.id) {
+        console.log(`[threads/poll] ⚠️ Sin campo 'status' pero hay id (${statusData.id}) — asumiendo FINISHED`);
+        return;
+      }
+      console.log(`[threads/poll] ⚠️ Sin campo 'status' ni 'id', esperando siguiente intento...`);
+      continue;
+    }
+
+    // IN_PROGRESS u otros estados desconocidos → seguir esperando
+    console.log(`[threads/poll] ⏳ Estado: ${status}, esperando...`);
   }
 
-  throw new Error(`El video no terminó de procesarse después de ${MAX_POLL_ATTEMPTS} intentos (${(MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS) / 1000}s). Intenta con un video más corto.`);
+  throw new Error(`Timeout: el video no terminó de procesarse después de ${MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS / 1000}s. Intenta con un video más corto.`);
 }
+
 
 export async function uploadToThreads(
   accessToken: string,
@@ -104,7 +112,7 @@ export async function uploadToThreads(
 
     // Paso 2: Esperar a que procese el video
     console.log('[threads/upload] ⏳ Esperando procesamiento del video...');
-    await waitForContainerReady(creationId, accessToken, threadsUserId);
+    await waitForContainerReady(creationId, accessToken);
 
     // Paso 3: Publicar el contenedor
     const publishBody = new URLSearchParams({
