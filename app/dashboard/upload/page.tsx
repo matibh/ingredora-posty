@@ -441,7 +441,7 @@ export default function UploadPage() {
       console.log('[upload] 📦 Cuentas por cliente:', accountsByClient)
 
       // Para cada cliente, verificar qué plataformas OAuth están seleccionadas
-      const OAUTH_PLATFORMS = ['youtube', 'facebook', 'instagram']
+      const OAUTH_PLATFORMS = ['youtube', 'facebook', 'instagram', 'threads']
       for (const [clientId, accounts] of Object.entries(accountsByClient)) {
         const selectedOauthPlatforms = OAUTH_PLATFORMS.filter(platform => 
           accounts.some(a => a.platform === platform)
