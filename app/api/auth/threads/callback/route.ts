@@ -51,24 +51,37 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=threads_token_error`);
     }
 
-    const shortLivedToken = tokens.access_token;
-
     // 2. Intercambiar por token de larga duración (60 días) via graph.threads.net
-    console.log('[threads/callback] 🔄 Obteniendo token de larga duración...');
-    const longLivedResponse = await fetch(
-      `https://graph.threads.net/access_token?grant_type=ig_exchange_token&client_secret=${threadsAppSecret}&access_token=${shortLivedToken}`
-    );
-    const longLivedTokens = await longLivedResponse.json();
+    console.log('[threads/callback] 🔑 Refresh token recibido:', tokens.refresh_token ? 'SÍ' : 'NO');
+    
+    let longLivedToken = tokens.access_token;
+    let expiresInSeconds = 60 * 24 * 60 * 60; // fallback 60 días
 
-    console.log('[threads/callback] 🔄 Respuesta token largo:', JSON.stringify(longLivedTokens));
+    if (tokens.refresh_token) {
+      console.log('[threads/callback] 🔄 Obteniendo token de larga duración...');
+      const refreshResponse = await fetch('https://graph.threads.net/refresh_access_token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          grant_type: 'ig_refresh_token',
+          refresh_token: tokens.refresh_token,
+          client_secret: threadsAppSecret,
+        }),
+      });
 
-    if (longLivedTokens.error) {
-      console.error('[threads/callback] ❌ Error en token largo:', longLivedTokens.error);
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=threads_exchange_error`);
+      const refreshData = await refreshResponse.json();
+      console.log('[threads/callback] 🔄 Refresh token response:', JSON.stringify(refreshData, null, 2));
+
+      if (refreshData.error) {
+        console.error('[threads/callback] ❌ Error en token largo:', refreshData.error);
+        return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/accounts?error=threads_exchange_error`);
+      }
+
+      longLivedToken = refreshData.access_token;
+      expiresInSeconds = refreshData.expires_in || expiresInSeconds;
     }
 
-    const longLivedToken = longLivedTokens.access_token;
-    const expiresInSeconds = longLivedTokens.expires_in || (60 * 24 * 60 * 60);
+    console.log('[threads/callback] 🔄 Token largo obtenido:', longLivedToken ? 'SÍ' : 'NO');
     console.log('[threads/callback] ✅ Token obtenido');
 
     // 3. Obtener info del usuario de Threads
