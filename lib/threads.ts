@@ -97,10 +97,12 @@ export async function uploadToThreads(
     });
 
     const createData = await createResponse.json();
-    console.log('[threads/upload] 📦 Respuesta creación contenedor:', JSON.stringify(createData));
+    console.log('[threads/upload] 📦 HTTP status creación:', createResponse.status);
+    console.log('[threads/upload] 📦 Respuesta completa:', JSON.stringify(createData, null, 2));
 
     if (createData.error) {
-      throw new Error(`Error al crear contenedor Threads: ${createData.error.message || JSON.stringify(createData.error)}`);
+      const errDetail = createData.error.error_user_msg || createData.error.message || JSON.stringify(createData.error);
+      throw new Error(`Error al crear contenedor Threads: ${errDetail}`);
     }
 
     const creationId = createData.id;
