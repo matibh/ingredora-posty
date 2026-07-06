@@ -306,6 +306,7 @@ export default function JobStatusPage() {
                     let urls: { youtube?: string; facebook?: string; instagram?: string; threads?: string } = {}
                     if (job.platform_video_url) {
                       try { urls = JSON.parse(job.platform_video_url) } catch {}
+                    }
 
                     const platforms = [
                       urls.youtube   && { label: 'YouTube',   url: urls.youtube,   bg: '#EF4444', border: '#EF444440', icon: 'Y', display: urls.youtube.replace('https://','') },
