@@ -9,20 +9,31 @@ async function waitForContainerReady(
   for (let attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
 
-    const statusUrl = new URL(`https://graph.threads.net/v1.0/${creationId}`);
-    statusUrl.searchParams.append('fields', 'status_code,status');
-    statusUrl.searchParams.append('access_token', accessToken);
+    const statusUrl = `https://graph.threads.net/v1.0/${creationId}?fields=status_code,status,id&access_token=${accessToken}`;
 
-    const statusResponse = await fetch(statusUrl.toString());
+    console.log(`[threads/poll] ⏳ Intento ${attempt}/${MAX_POLL_ATTEMPTS} — consultando estado del contenedor ${creationId}`);
+
+    const statusResponse = await fetch(statusUrl);
+    console.log(`[threads/poll] 📊 Status HTTP: ${statusResponse.status}`);
+
     const statusData = await statusResponse.json();
-
-    console.log(`[threads/poll] 🔄 Intento ${attempt}/${MAX_POLL_ATTEMPTS} estado contenedor:`, JSON.stringify(statusData));
+    console.log(`[threads/poll] 📊 Body:`, JSON.stringify(statusData, null, 2));
 
     if (statusData.error) {
       throw new Error(`Error consultando estado del contenedor: ${statusData.error.message}`);
     }
 
     const statusCode = statusData.status_code;
+
+    // Si no viene status_code pero sí viene un id, asumimos que ya está FINISHED
+    if (!statusCode) {
+      if (statusData.id) {
+        console.log(`[threads/poll] ⚠️ No se encontró status_code, pero hay id (${statusData.id}) — asumiendo FINISHED`);
+        return;
+      }
+      console.log(`[threads/poll] ⚠️ Respuesta sin status_code ni id, esperando siguiente intento...`);
+      continue;
+    }
 
     if (statusCode === 'FINISHED') {
       console.log('[threads/poll] ✅ Contenedor listo para publicar');
@@ -33,6 +44,7 @@ async function waitForContainerReady(
       throw new Error(`Procesamiento del video falló. Estado de Threads: ${statusCode}. Detalle: ${statusData.status || 'desconocido'}`);
     }
 
+    // IN_PROGRESS u otros: seguir esperando
     console.log(`[threads/poll] ⏳ Estado: ${statusCode}, esperando...`);
   }
 
