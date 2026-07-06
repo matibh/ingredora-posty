@@ -88,6 +88,7 @@ export async function uploadToThreads(
     });
 
     const containerUrl = `https://graph.threads.net/v1.0/${threadsUserId}/threads`;
+    console.log('[threads/upload] 🔑 Access token (primeros 20 chars):', accessToken?.substring(0, 20));
     console.log('[threads/upload] 📦 Creando contenedor en:', containerUrl);
     console.log('[threads/upload] 📦 Body:', JSON.stringify({ media_type: 'VIDEO', video_url: videoUrl, text: text }));
     const createResponse = await fetch(containerUrl, {
@@ -97,8 +98,9 @@ export async function uploadToThreads(
     });
 
     const createData = await createResponse.json();
-    console.log('[threads/upload] 📦 HTTP status creación:', createResponse.status);
+    console.log('[threads/upload] 📦 HTTP status:', createResponse.status);
     console.log('[threads/upload] 📦 Respuesta completa:', JSON.stringify(createData, null, 2));
+    console.log('[threads/upload] 📦 Headers:', JSON.stringify(Object.fromEntries(createResponse.headers.entries()), null, 2));
 
     if (createData.error) {
       const errDetail = createData.error.error_user_msg || createData.error.message || JSON.stringify(createData.error);
