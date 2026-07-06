@@ -301,15 +301,11 @@ export default function JobStatusPage() {
                 <h3 className="text-lg font-bold mb-5 tracking-tight" style={{ color: '#F0F4F8' }}>Publicado en</h3>
                 <div className="flex flex-col gap-3">
                   {(() => {
-                    // Parsear URLs de plataformas desde platform_video_url (JSON) o fallback a platform_video_id (YouTube)
+                    // Solo mostrar plataformas que realmente se publicaron (guardadas en platform_video_url JSON)
+                    // NO usar platform_video_id como fallback de YouTube — puede ser de cualquier plataforma
                     let urls: { youtube?: string; facebook?: string; instagram?: string; threads?: string } = {}
                     if (job.platform_video_url) {
                       try { urls = JSON.parse(job.platform_video_url) } catch {}
-                    }
-                    // Fallback: si solo hay platform_video_id, asumimos YouTube (comportamiento anterior)
-                    if (!urls.youtube && job.platform_video_id) {
-                      urls.youtube = `https://www.youtube.com/watch?v=${job.platform_video_id}`
-                    }
 
                     const platforms = [
                       urls.youtube   && { label: 'YouTube',   url: urls.youtube,   bg: '#EF4444', border: '#EF444440', icon: 'Y', display: urls.youtube.replace('https://','') },

@@ -73,7 +73,7 @@ export async function uploadToThreads(
   videoUrl: string,
   text: string,
   threadsUserId: string
-): Promise<{ id: string }> {
+): Promise<{ id: string; permalink: string }> {
   console.log('[threads/upload] 🚀 Iniciando publicación en Threads');
   console.log('[threads/upload] 📹 Video URL:', videoUrl);
   console.log('[threads/upload] 👤 Threads User ID:', threadsUserId);
@@ -140,7 +140,30 @@ export async function uploadToThreads(
     }
 
     console.log('[threads/upload] 🎉 Publicado exitosamente. ID:', publishData.id);
-    return { id: publishData.id };
+
+    // Paso 4: Obtener permalink real (contiene el shortcode para la URL pública)
+    let permalink = `https://www.threads.com/t/${publishData.id}`; // fallback
+    try {
+      const permalinkRes = await fetch(
+        `https://graph.threads.net/v1.0/${publishData.id}?fields=id,permalink,shortcode,username`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const permalinkData = await permalinkRes.json();
+      console.log('[threads/upload] 🔗 Datos de permalink:', JSON.stringify(permalinkData));
+
+      if (permalinkData.permalink) {
+        permalink = permalinkData.permalink;
+      } else if (permalinkData.shortcode && permalinkData.username) {
+        permalink = `https://www.threads.com/@${permalinkData.username}/post/${permalinkData.shortcode}`;
+      } else if (permalinkData.shortcode) {
+        permalink = `https://www.threads.com/t/${permalinkData.shortcode}`;
+      }
+    } catch (err) {
+      console.error('[threads/upload] ⚠️ No se pudo obtener el permalink, usando fallback:', err);
+    }
+
+    console.log('[threads/upload] 🔗 Permalink final:', permalink);
+    return { id: publishData.id, permalink };
   } catch (error: any) {
     console.error('[threads/upload] ❌ Error en uploadToThreads:', error.message);
     throw error;

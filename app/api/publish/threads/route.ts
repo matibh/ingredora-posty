@@ -94,7 +94,8 @@ export async function POST(request: Request) {
 
     // 4. Update Job on Success
     const videoId = result.id;
-    const videoUrl = `https://www.threads.net/t/${videoId}`;
+    // Usar el permalink real (contiene el shortcode como Dac_JhgggS6)
+    const videoUrl = result.permalink || `https://www.threads.com/t/${videoId}`;
 
     console.log('[publish/threads] ✅ Publicación exitosa. ID:', videoId);
     console.log('[publish/threads] 🔗 URL:', videoUrl);
