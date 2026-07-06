@@ -85,12 +85,18 @@ export async function GET(request: Request) {
     console.log('[threads/callback] ✅ Token obtenido');
 
     // 3. Obtener info del usuario de Threads
-    // 3. Obtener info del usuario de Threads
     console.log('[threads/callback] 👤 Obteniendo info del usuario Threads...');
-    const meResponse = await fetch('https://graph.threads.net/v22.0/me?fields=id,username', {
-      headers: { Authorization: `Bearer ${longLivedToken}` }
+    console.log('[threads/callback] 🔑 Token usado para me:', longLivedToken ? 'PRESENTE' : 'FALTA');
+    console.log('[threads/callback] 🔑 Token (primeros 20 chars):', longLivedToken?.substring(0, 20));
+
+    const meResponse = await fetch('https://graph.threads.net/me?fields=id,username', {
+      headers: {
+        Authorization: `Bearer ${longLivedToken}`,
+        'User-Agent': 'PostyApp/1.0'
+      }
     });
     const meData = await meResponse.json();
+    console.log('[threads/callback] 📡 Status de meResponse:', meResponse.status);
     console.log('[threads/callback] 👤 Datos de me:', JSON.stringify(meData, null, 2));
 
     if (!meData.id) {
