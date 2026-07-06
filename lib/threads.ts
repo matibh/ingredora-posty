@@ -9,7 +9,7 @@ async function waitForContainerReady(
   for (let attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
 
-    const statusUrl = new URL(`https://graph.threads.net/v22.0/${creationId}`);
+    const statusUrl = new URL(`https://graph.threads.net/v1.0/${creationId}`);
     statusUrl.searchParams.append('fields', 'status_code,status');
     statusUrl.searchParams.append('access_token', accessToken);
 
@@ -58,8 +58,10 @@ export async function uploadToThreads(
       text: text,
     });
 
-    console.log('[threads/upload] 📦 Creando contenedor de media...');
-    const createResponse = await fetch(`https://graph.threads.net/v22.0/${threadsUserId}/threads`, {
+    const containerUrl = `https://graph.threads.net/v1.0/${threadsUserId}/threads`;
+    console.log('[threads/upload] 📦 Creando contenedor en:', containerUrl);
+    console.log('[threads/upload] 📦 Body:', JSON.stringify({ media_type: 'VIDEO', video_url: videoUrl, text: text }));
+    const createResponse = await fetch(containerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: createBody.toString(),
@@ -89,8 +91,9 @@ export async function uploadToThreads(
       creation_id: creationId,
     });
 
-    console.log('[threads/upload] 🚀 Publicando contenedor...');
-    const publishResponse = await fetch(`https://graph.threads.net/v22.0/${threadsUserId}/threads_publish`, {
+    const publishUrl = `https://graph.threads.net/v1.0/${threadsUserId}/threads_publish`;
+    console.log('[threads/upload] 🚀 Publicando contenedor en:', publishUrl);
+    const publishResponse = await fetch(publishUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: publishBody.toString(),
