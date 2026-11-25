@@ -298,7 +298,7 @@ export default function UploadPage() {
         setTagInput('')
         setError(null)
         setMetadataImportError(null)
-        setMetadataImportNotice('✓ MP4 y TXT importados desde Content Studio. Revisá los metadatos y guardá el video como borrador; no se publicará en ninguna red.')
+        setMetadataImportNotice('✓ MP4 y TXT importados desde Content Studio. Revisá los metadatos y guardá el video en Posty; no se publicará en ninguna red.')
         window.history.replaceState({}, '', window.location.pathname)
       } catch (importError) {
         if (!cancelled) {
@@ -1322,7 +1322,7 @@ export default function UploadPage() {
           disabled={isUploading || isSavingDraft || !videoFile}
           className="mt-6 w-full rounded-2xl border border-[#22C55E]/50 bg-[#22C55E]/10 py-4 text-base font-bold text-[#86EFAC] transition-colors hover:bg-[#22C55E]/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isSavingDraft ? 'Guardando video y metadatos…' : 'Guardar en Posty como borrador · Sin publicar'}
+          {isSavingDraft ? 'Guardando video y metadatos…' : 'Guardar en Posty · Sin publicar'}
         </button>
         <p className="mt-2 text-center text-xs text-[#6A7E94]">
           Esta opción sube el MP4 y guarda los metadatos en Posty. No inicia publicaciones ni envía contenido a redes.
