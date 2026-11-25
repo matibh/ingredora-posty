@@ -240,16 +240,14 @@ export default function UploadPage() {
     if (!source || studioImportStartedRef.current) return
 
     const match = source.match(/^(Serie|Publicidad)\/([^/\\]+\.mp4)$/i)
-    if (!match || (match[1] !== 'Serie' && match[1] !== 'Publicidad')) {
-      setMetadataImportError('El enlace de Content Studio no contiene una ruta de capítulo válida.')
-      return
-    }
-
     studioImportStartedRef.current = true
     let cancelled = false
 
     async function importFromContentStudio() {
       try {
+        if (!match || (match[1] !== 'Serie' && match[1] !== 'Publicidad')) {
+          throw new Error('El enlace de Content Studio no contiene una ruta de capítulo válida.')
+        }
         const folder = match[1]
         const videoName = match[2]
         const baseName = videoName.replace(/\.mp4$/i, '')
