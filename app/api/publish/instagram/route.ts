@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { uploadToInstagram } from '@/lib/instagram';
 import { refreshMetaToken } from '@/lib/meta';
+import { getPlatformMetadata, formatSocialCaption } from '@/lib/platform-metadata';
 
 export async function POST(request: Request) {
   let jobId: string | undefined;
@@ -87,10 +88,9 @@ export async function POST(request: Request) {
        }
     }
 
-    // Format caption
-    const titleString = job.title ? `${job.title}\n\n` : '';
-    const tagsString = job.tags && job.tags.length > 0 ? '\n\n' + job.tags.map((t: string) => `#${t.replace(/^#/, '')}`).join(' ') : '';
-    const finalCaption = `${titleString}${job.description || ''}${tagsString}`.trim();
+    // Resolve this platform's copy; legacy jobs retain their previous caption format.
+    const platformMetadata = getPlatformMetadata(job, 'instagram');
+    const finalCaption = formatSocialCaption(platformMetadata);
 
     console.log('[publish/instagram] 📹 Video URL:', job.video_url);
     console.log('[publish/instagram] 📝 Caption length:', finalCaption.length);
