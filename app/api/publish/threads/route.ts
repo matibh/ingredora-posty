@@ -117,21 +117,22 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, platform_video_id: videoId, videoUrl });
 
-  } catch (error: any) {
-    console.error('[publish/threads] ❌ Error:', error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al publicar en Threads';
+    console.error('[publish/threads] ❌ Error:', errorMessage);
 
     if (jobId) {
       try {
         const supabase = await createClient();
         await supabase.from('jobs').update({
           status: 'error',
-          error_message: error.message || 'Error desconocido al publicar en Threads'
+          error_message: errorMessage
         }).eq('id', jobId);
       } catch (dbErr) {
         console.error('[publish/threads] ❌ No se pudo actualizar el job a error:', dbErr);
       }
     }
 
-    return NextResponse.json({ error: error.message || 'Error desconocido' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
