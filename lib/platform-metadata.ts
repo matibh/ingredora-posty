@@ -4,9 +4,6 @@ export interface ResolvedPlatformMetadata {
   title: string
   description: string
   hashtags: string
-  tags: string[]
-  pinnedComment: string
-  altText: string
 }
 
 interface JobMetadataSource {
@@ -28,7 +25,8 @@ function asString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback
 }
 
-function parseTags(value: unknown): string[] {
+// Kept only for legacy jobs created before the TXT metadata importer existed.
+function parseLegacyTags(value: unknown): string[] {
   const values = Array.isArray(value)
     ? value
     : typeof value === 'string'
@@ -51,10 +49,8 @@ function parseTags(value: unknown): string[] {
 }
 
 /**
- * Resolve metadata for one platform.
- *
- * A valid platform block is authoritative, including intentionally empty
- * values. Legacy jobs without platform_metadata keep the old global fields.
+ * Resolve only the three supported content fields for one publishing
+ * destination. New TXT jobs use their own per-platform block.
  */
 export function getPlatformMetadata(
   job: JobMetadataSource,
@@ -69,21 +65,16 @@ export function getPlatformMetadata(
       title: asString(platformBlock.title, asString(job.title)),
       description: asString(platformBlock.description, asString(job.description)),
       hashtags: asString(platformBlock.hashtags),
-      tags: parseTags(platformBlock.tags),
-      pinnedComment: asString(platformBlock.pinnedComment),
-      altText: asString(platformBlock.altText),
     }
   }
 
-  const legacyTags = parseTags(job.tags)
+  // Preserve the previous behavior for old jobs without platform_metadata.
+  const legacyTags = parseLegacyTags(job.tags)
 
   return {
     title: asString(job.title),
     description: asString(job.description),
     hashtags: legacyTags.map((tag) => '#' + tag).join(' '),
-    tags: legacyTags,
-    pinnedComment: '',
-    altText: '',
   }
 }
 
@@ -121,7 +112,7 @@ export function appendMetadataHashtags(description: string, hashtags: string): s
   return [base, additions.join(' ')].filter(Boolean).join(base ? '\n\n' : '').trim()
 }
 
-/** Instagram and Threads captions include the platform title before the copy. */
+/** Instagram and Threads captions include the title followed by copy and hashtags. */
 export function formatSocialCaption(metadata: ResolvedPlatformMetadata): string {
   const title = metadata.title.trim()
   const description = appendMetadataHashtags(metadata.description, metadata.hashtags)
