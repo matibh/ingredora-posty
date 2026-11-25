@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { uploadToFacebook } from '@/lib/facebook';
 import { refreshMetaToken } from '@/lib/meta';
+import { getPlatformMetadata, appendMetadataHashtags } from '@/lib/platform-metadata';
 
 export async function POST(request: Request) {
   try {
@@ -81,9 +82,9 @@ export async function POST(request: Request) {
        }
     }
 
-    // Format title and description (combine tags if needed, or put them in description)
-    const tagsString = job.tags && job.tags.length > 0 ? '\n\n' + job.tags.map((t: string) => `#${t.replace('#', '')}`).join(' ') : '';
-    const finalDescription = `${job.description || ''}${tagsString}`;
+    // Facebook receives its own title and copy; hashtags are appended without duplicates.
+    const platformMetadata = getPlatformMetadata(job, 'facebook');
+    const finalDescription = appendMetadataHashtags(platformMetadata.description, platformMetadata.hashtags);
 
     // 3. Upload to Facebook
     let scheduledDate: Date | undefined = undefined;
