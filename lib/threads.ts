@@ -71,7 +71,8 @@ export async function uploadToThreads(
   accessToken: string,
   videoUrl: string,
   text: string,
-  threadsUserId: string
+  threadsUserId: string,
+  altText = '',
 ): Promise<{ id: string; permalink: string }> {
   console.log('[threads/upload] 🚀 Iniciando publicación en Threads');
   console.log('[threads/upload] 👤 Threads User ID:', threadsUserId);
@@ -84,6 +85,7 @@ export async function uploadToThreads(
       video_url: videoUrl,
       text: text,
     });
+    if (altText.trim()) createBody.set('alt_text', altText.trim());
 
     const containerUrl = `https://graph.threads.net/v1.0/${threadsUserId}/threads`;
     console.log('[threads/upload] 📦 Creando contenedor en:', containerUrl);
