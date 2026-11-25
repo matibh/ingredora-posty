@@ -127,17 +127,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, platform_video_id: videoId, videoUrl });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API Publish Facebook error:', error);
-    
-    if (error.message && error.message.includes('id')) {
-        // Attempt to update the job with the error
-        try {
-            const supabase = await createClient();
-            // It might fail if we can't extract jobId safely
-        } catch(e) {}
-    }
-
-    return NextResponse.json({ error: error.message || 'Error desconocido' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
