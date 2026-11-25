@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { uploadToThreads, refreshThreadsToken } from '@/lib/threads';
+import { getPlatformMetadata, formatSocialCaption } from '@/lib/platform-metadata';
 
 export async function POST(request: Request) {
   let jobId: string | undefined;
@@ -76,10 +77,9 @@ export async function POST(request: Request) {
        }
     }
 
-    // Format text content
-    const titleString = job.title ? `${job.title}\n\n` : '';
-    const tagsString = job.tags && job.tags.length > 0 ? '\n\n' + job.tags.map((t: string) => `#${t.replace(/^#/, '')}`).join(' ') : '';
-    const finalText = `${titleString}${job.description || ''}${tagsString}`.trim();
+    // Resolve Threads' own title, copy and hashtags (or legacy global fields).
+    const platformMetadata = getPlatformMetadata(job, 'threads');
+    const finalText = formatSocialCaption(platformMetadata);
 
     console.log('[publish/threads] 📤 Publicando en Threads...');
     console.log('[publish/threads] 📹 Video URL:', job.video_url);
