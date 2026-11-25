@@ -32,7 +32,7 @@ interface SocialToken {
   platform: string
   username: string
   page_name: string | null
-  refresh_token: string | null
+  has_refresh_token: boolean
   expires_at: string | null
   created_at: string
 }
@@ -134,20 +134,6 @@ export default function UploadPage() {
         const res = await fetch('/api/clients', { cache: 'no-store' })
         if (res.ok) {
           const data: Client[] = await res.json()
-
-          // ── DEBUG ─────────────────────────────────────────────────
-          console.log('[upload] 🔍 Clientes completos:', data)
-          data.forEach(client => {
-            console.log(`[upload] 🔍 Cliente ${client.name} (${client.id}):`)
-            console.log(`[upload] 🔍   client_social_accounts:`, client.client_social_accounts)
-            console.log(`[upload] 🔍   social_tokens:`, client.social_tokens)
-            // Lógica aplazada porque getClientAccounts aún no está en scope, lo vemos abajo
-          })
-          if (data.length === 0) {
-            console.log('⚠️ No se encontraron clientes para este usuario')
-          }
-          // ──────────────────────────────────────────────────────────
-
           setClients(data)
 
           // Preselect if client query param exists
@@ -199,7 +185,7 @@ export default function UploadPage() {
         accessExpired = new Date(t.expires_at) <= now
       }
       const isMetaPlatform = ['facebook', 'instagram', 'threads'].includes(t.platform)
-      const hasRefresh = isMetaPlatform || !!t.refresh_token
+      const hasRefresh = isMetaPlatform || t.has_refresh_token
 
       // Log de diagnóstico (consola del navegador)
       console.log(
