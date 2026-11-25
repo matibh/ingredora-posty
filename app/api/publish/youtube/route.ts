@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { uploadToYouTube, refreshYouTubeToken, mapPrivacyStatus } from '@/lib/youtube'
+import { getPlatformMetadata, appendMetadataHashtags } from '@/lib/platform-metadata'
 
 export const maxDuration = 300 // 5 minutos — la subida de video puede tardar
 
@@ -91,12 +92,13 @@ export async function POST(request: Request) {
 
     let uploadResult
     try {
+      const platformMetadata = getPlatformMetadata(job, 'youtube')
       uploadResult = await uploadToYouTube(
         accessToken,
         job.video_url,
-        job.title || 'Video sin título',
-        job.description || '',
-        Array.isArray(job.tags) ? job.tags : [],
+        platformMetadata.title || 'Video sin título',
+        appendMetadataHashtags(platformMetadata.description, platformMetadata.hashtags),
+        platformMetadata.tags,
         privacyStatus,
         publishAt,
       )
