@@ -104,9 +104,6 @@ export default function UploadPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
-  const [isSavingDraft, setIsSavingDraft] = useState(false)
-  const [draftMessage, setDraftMessage] = useState<string | null>(null)
-  const studioImportStartedRef = useRef(false)
 
   // Metadatos del video
   const [title, setTitle] = useState('')
@@ -233,76 +230,6 @@ export default function UploadPage() {
     setVideoFile(file)
     setError(null)
     setVideoPreview(URL.createObjectURL(file))
-  }, [])
-
-  useEffect(() => {
-    const source = new URLSearchParams(window.location.search).get('studio')
-    if (!source || studioImportStartedRef.current) return
-
-    const match = source.match(/^(Serie|Publicidad)\/([^/\\]+\.mp4)$/i)
-    studioImportStartedRef.current = true
-    async function importFromContentStudio() {
-      try {
-        if (!match || (match[1] !== 'Serie' && match[1] !== 'Publicidad')) {
-          throw new Error('El enlace de Content Studio no contiene una ruta de capítulo válida.')
-        }
-        const folder = match[1]
-        const videoName = match[2]
-        const baseName = videoName.replace(/\.mp4$/i, '')
-        const baseUrl = 'https://raw.githubusercontent.com/matibh/ingredora-content-studio/main/Contenido%20a%20subir/'
-          + encodeURIComponent(folder) + '/'
-        setMetadataImportNotice('Conectando con Ingredora Content Studio y descargando el MP4 y su TXT…')
-
-        const [videoResponse, txtResponse] = await Promise.all([
-          fetch(baseUrl + encodeURIComponent(videoName), { cache: 'no-store' }),
-          fetch(baseUrl + encodeURIComponent(baseName + '.txt'), { cache: 'no-store' }),
-        ])
-        if (!videoResponse.ok) throw new Error('No se pudo recuperar el MP4 desde Content Studio (HTTP ' + videoResponse.status + ').')
-        if (!txtResponse.ok) throw new Error('No se encontró el TXT asociado al capítulo (HTTP ' + txtResponse.status + ').')
-
-        const videoBlob = await videoResponse.blob()
-        if (!videoBlob.size || videoBlob.size > 500 * 1024 * 1024) {
-          throw new Error('El MP4 está vacío o supera el límite de 500 MB.')
-        }
-        const txtBlob = await txtResponse.blob()
-        if (!txtBlob.size || txtBlob.size > 256 * 1024) {
-          throw new Error('El TXT está vacío o supera el límite de 256 KB.')
-        }
-
-        const video = new File([videoBlob], videoName, { type: 'video/mp4' })
-        const metadata = new File([txtBlob], baseName + '.txt', { type: 'text/plain' })
-        const parsed = parseIngredoraMetadata(await metadata.text())
-        setVideoFile(video)
-        setVideoPreview(URL.createObjectURL(video))
-        setMetadataFile(metadata)
-        setPlatformMetadata(parsed)
-        setActiveMetadataPlatform('youtube')
-        setTitle(parsed.global.title || parsed.platforms.youtube.title)
-        setDescription(parsed.global.description || parsed.platforms.youtube.description)
-
-        const sourceTags = parsed.global.tags || parsed.platforms.youtube.tags
-        const importedTags: string[] = []
-        let importedTagsLength = 0
-        for (const rawTag of sourceTags.split(/[,;\n]/)) {
-          const tag = rawTag.trim().replace(/^#/, '')
-          if (!tag || importedTags.includes(tag) || importedTags.length >= 30) continue
-          if (importedTagsLength + tag.length > 500) break
-          importedTags.push(tag)
-          importedTagsLength += tag.length
-        }
-        setTags(importedTags)
-        setTagInput('')
-        setError(null)
-        setMetadataImportError(null)
-        setMetadataImportNotice('✓ MP4 y TXT importados desde Content Studio. Revisá los metadatos y guardá el video en Posty; no se publicará en ninguna red.')
-        window.history.replaceState({}, '', window.location.pathname)
-      } catch (importError) {
-        setMetadataImportNotice(null)
-        setMetadataImportError(importError instanceof Error ? importError.message : 'No se pudo importar el capítulo desde Content Studio.')
-      }
-    }
-
-    void importFromContentStudio()
   }, [])
 
   const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
@@ -467,64 +394,10 @@ export default function UploadPage() {
     videoFile.name.replace(/\.[^.]+$/, '').trim().toLowerCase() ===
     metadataFile.name.replace(/\.txt$/i, '').trim().toLowerCase()
 
-  async function handleSaveDraft() {
-    if (!videoFile) return setError('No hay un MP4 para guardar.')
-    const hasImportedPlatformCopy = platformMetadata
-      ? Object.values(platformMetadata.platforms).some(copy => copy.title.trim() || copy.description.trim())
-      : false
-    if (!title.trim() && !hasImportedPlatformCopy) {
-      return setError('El TXT no contiene un título ni contenido para las plataformas.')
-    }
-
-    setIsSavingDraft(true)
-    setError(null)
-    setDraftMessage('Preparando la carga segura a Posty…')
-
-    try {
-      const urlRes = await fetch('/api/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: videoFile.name, fileType: 'video/mp4' }),
-      })
-      const urlData = await urlRes.json()
-      if (!urlRes.ok) throw new Error(urlData.error ?? 'No se pudo preparar la subida.')
-
-      setDraftMessage('Subiendo el MP4 a Supabase Storage…')
-      const uploadRes = await fetch(urlData.uploadUrl, {
-        method: 'PUT',
-        body: videoFile,
-        headers: { 'Content-Type': 'video/mp4' },
-      })
-      if (!uploadRes.ok) throw new Error('Falló la subida del MP4 a Storage (HTTP ' + uploadRes.status + ').')
-
-      setDraftMessage('Registrando el video y sus metadatos…')
-      const jobResponse = await fetch('/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          description,
-          tags,
-          privacy: 'Privado',
-          videoUrl: urlData.publicUrl,
-          platform_metadata: platformMetadata ?? undefined,
-        }),
-      })
-      const jobData = await jobResponse.json()
-      if (!jobResponse.ok) throw new Error(jobData.error ?? 'No se pudo crear el borrador en Posty.')
-
-      setDraftMessage('✓ Video guardado en Posty. No se publicó en ninguna red.')
-      router.push('/dashboard/jobs/' + jobData.job_id)
-    } catch (draftError) {
-      setError(draftError instanceof Error ? draftError.message : 'No se pudo guardar el borrador.')
-      setDraftMessage(null)
-    } finally {
-      setIsSavingDraft(false)
-    }
-  }
-
   async function handleSubmit() {
     if (!videoFile) return setError('Por favor selecciona un video.')
+    if (metadataImportError) return setError('Corregí el TXT antes de continuar: ' + metadataImportError)
+    if (metadataFile && !metadataNamesMatch) return setError('El MP4 y el TXT deben tener el mismo nombre base.')
     const hasImportedPlatformCopy = platformMetadata
       ? Object.values(platformMetadata.platforms).some(copy => copy.title.trim() || copy.description.trim())
       : false
@@ -741,10 +614,10 @@ export default function UploadPage() {
 
         <div className="mb-10">
           <h1 className="text-3xl font-extrabold mb-3 tracking-tighter" style={{ color: '#F0F4F8' }}>
-            Sube y publica tu video
+            Nueva publicación
           </h1>
           <p className="leading-relaxed" style={{ color: '#A8B8C8' }}>
-            Tu video ya editado se distribuirá en las cuentas de redes sociales de tus clientes.
+            Subí el MP4 y su TXT de Ingredora. Posty completará los textos de cada red para que puedas revisarlos y publicar desde tus cuentas conectadas.
           </p>
         </div>
 
@@ -860,12 +733,12 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Importación opcional del TXT de Ingredora Content Studio */}
+          {/* Importación del TXT de metadatos Ingredora */}
           <div className="border-t border-[#334155] pt-6 space-y-4">
             <div>
               <div className="flex items-center justify-between gap-3 mb-1.5">
                 <label htmlFor="metadata-file-input" className="block text-sm font-bold text-[#F0F4F8]">
-                  TXT de metadatos de Ingredora <span className="text-xs font-medium text-[#A8B8C8]">(opcional)</span>
+                  TXT de metadatos de Ingredora <span className="text-xs font-medium text-[#A8B8C8]">(recomendado)</span>
                 </label>
                 {metadataFile && (
                   <button
@@ -888,7 +761,7 @@ export default function UploadPage() {
                 className="block w-full text-sm text-[#A8B8C8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#1A6B8A] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[#237f9f] disabled:opacity-50"
               />
               <p className="mt-2 text-xs text-[#6A7E94]">
-                Seleccioná el TXT con el mismo nombre base que el MP4. Posty reconoce el formato INGREDORA_PUBLISHING_TEMPLATE_V1.
+                Seleccioná el TXT correspondiente al MP4. Idealmente ambos archivos deben compartir el mismo nombre. Posty reconoce INGREDORA_PUBLISHING_TEMPLATE_V1 y completa los campos de cada red.
               </p>
               {metadataFile && (
                 <p className="mt-2 text-xs text-[#A8B8C8]">
@@ -1301,25 +1174,6 @@ export default function UploadPage() {
             </div>
           </div>
         )}
-
-        {draftMessage && (
-          <p role="status" className="mt-5 rounded-xl border border-[#1A6B8A]/50 bg-[#1A6B8A]/10 px-4 py-3 text-sm text-[#B8E6F5]">
-            {draftMessage}
-          </p>
-        )}
-
-        {/* Importar desde Content Studio sin publicar */}
-        <button
-          type="button"
-          onClick={handleSaveDraft}
-          disabled={isUploading || isSavingDraft || !videoFile}
-          className="mt-6 w-full rounded-2xl border border-[#22C55E]/50 bg-[#22C55E]/10 py-4 text-base font-bold text-[#86EFAC] transition-colors hover:bg-[#22C55E]/20 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isSavingDraft ? 'Guardando video y metadatos…' : 'Guardar en Posty · Sin publicar'}
-        </button>
-        <p className="mt-2 text-center text-xs text-[#6A7E94]">
-          Esta opción sube el MP4 y guarda los metadatos en Posty. No inicia publicaciones ni envía contenido a redes.
-        </p>
 
         {/* CTA */}
         <button
