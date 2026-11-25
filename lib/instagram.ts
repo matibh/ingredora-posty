@@ -17,7 +17,7 @@ async function waitForContainerReady(
     const statusResponse = await fetch(statusUrl.toString());
     const statusData = await statusResponse.json();
 
-    console.log(`[instagram] 🔄 Intento ${attempt}/${MAX_POLL_ATTEMPTS} estado contenedor:`, JSON.stringify(statusData));
+    console.log(`[instagram] 🔄 Intento ${attempt}/${MAX_POLL_ATTEMPTS}. Estado: ${statusData.status_code || 'desconocido'}`);
 
     if (statusData.error) {
       throw new Error(`Error consultando estado del contenedor: ${statusData.error.message}`);
@@ -45,11 +45,10 @@ export async function uploadToInstagram(
   accessToken: string,
   videoUrl: string,
   caption: string,
-  igUserId: string
+  igUserId: string,
+  altText = '',
 ): Promise<{ id: string; permalink: string }> {
   console.log('[instagram] 🚀 Iniciando publicación en Instagram');
-  console.log('[instagram] 📹 Video URL:', videoUrl);
-  console.log('[instagram] 👤 IG User ID:', igUserId);
 
   try {
     // Paso 1: Crear contenedor de media (Reels)
@@ -60,6 +59,7 @@ export async function uploadToInstagram(
       caption: caption,
       share_to_feed: 'true',
     });
+    if (altText.trim()) createBody.set('alt_text', altText.trim());
 
     console.log('[instagram] 📦 Creando contenedor de media...');
     const createResponse = await fetch(`https://graph.instagram.com/v22.0/${igUserId}/media`, {
@@ -70,7 +70,6 @@ export async function uploadToInstagram(
 
     const createData = await createResponse.json();
 
-    console.log('[instagram] 📦 Respuesta creación contenedor:', JSON.stringify(createData));
 
     if (createData.error) {
       throw new Error(`Error al crear contenedor IG: ${createData.error.message || JSON.stringify(createData.error)}`);
@@ -102,7 +101,6 @@ export async function uploadToInstagram(
 
     const publishData = await publishResponse.json();
 
-    console.log('[instagram] 📤 Respuesta publicación:', JSON.stringify(publishData));
 
     if (publishData.error) {
       throw new Error(`Error al publicar Reel IG: ${publishData.error.message || JSON.stringify(publishData.error)}`);
@@ -132,13 +130,13 @@ export async function uploadToInstagram(
         }
       }
     } catch (err) {
-      console.error('[instagram] Error al obtener permalink:', err);
+      console.warn('[instagram] No se pudo obtener el permalink de la publicación.');
     }
 
-    console.log('[instagram] 🔗 Permalink:', permalink);
     return { id: publishData.id, permalink };
-  } catch (error: any) {
-    console.error('[instagram] ❌ Error en uploadToInstagram:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Error desconocido';
+    console.error('[instagram] ❌ Error en uploadToInstagram:', message);
     throw error;
   }
 }

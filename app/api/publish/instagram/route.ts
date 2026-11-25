@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { uploadToInstagram } from '@/lib/instagram';
 import { refreshMetaToken } from '@/lib/meta';
+import { getPlatformMetadata, formatSocialCaption } from '@/lib/platform-metadata';
 
 export async function POST(request: Request) {
   let jobId: string | undefined;
@@ -18,12 +19,15 @@ export async function POST(request: Request) {
     console.log('[publish/instagram] 🚀 Iniciando publicación. jobId:', jobId, 'clientId:', clientId);
 
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     
     // 1. Get Job
     const { data: job, error: jobError } = await supabase
       .from('jobs')
       .select('*')
       .eq('id', jobId)
+      .eq('user_id', user.id)
       .single();
 
     if (jobError || !job) {
@@ -41,6 +45,7 @@ export async function POST(request: Request) {
     const { data: tokenData, error: tokenError } = await supabase
       .from('social_tokens')
       .select('*')
+      .eq('user_id', user.id)
       .eq('client_id', clientId)
       .eq('platform', 'instagram')
       .maybeSingle();
@@ -87,10 +92,9 @@ export async function POST(request: Request) {
        }
     }
 
-    // Format caption
-    const titleString = job.title ? `${job.title}\n\n` : '';
-    const tagsString = job.tags && job.tags.length > 0 ? '\n\n' + job.tags.map((t: string) => `#${t.replace(/^#/, '')}`).join(' ') : '';
-    const finalCaption = `${titleString}${job.description || ''}${tagsString}`.trim();
+    // Resolve this platform's copy; legacy jobs retain their previous caption format.
+    const platformMetadata = getPlatformMetadata(job, 'instagram');
+    const finalCaption = formatSocialCaption(platformMetadata);
 
     console.log('[publish/instagram] 📹 Video URL:', job.video_url);
     console.log('[publish/instagram] 📝 Caption length:', finalCaption.length);
@@ -100,13 +104,14 @@ export async function POST(request: Request) {
       accessToken,
       job.video_url,
       finalCaption,
-      tokenData.platform_user_id
+      tokenData.platform_user_id,
+      platformMetadata.altText,
     );
 
     // 4. Update Job on Success
     const videoId = result.id;
     // La firma de uploadToInstagram la acabamos de actualizar para devolver permalink
-    const videoUrl = (result as any).permalink || `https://www.instagram.com/p/${videoId}`;
+    const videoUrl = result.permalink || `https://www.instagram.com/p/${videoId}`;
 
     console.log('[publish/instagram] 🆔 Video ID guardado:', videoId);
     console.log('[publish/instagram] 🔗 URL:', videoUrl);
@@ -129,8 +134,9 @@ export async function POST(request: Request) {
     console.log('[publish/instagram] ✅ Job actualizado a done. platform_video_id:', videoId);
     return NextResponse.json({ success: true, platform_video_id: videoId, videoUrl });
 
-  } catch (error: any) {
-    console.error('[publish/instagram] ❌ Error:', error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al publicar en Instagram';
+    console.error('[publish/instagram] ❌ Error:', errorMessage);
 
     // Update job status to error
     if (jobId) {
@@ -138,13 +144,13 @@ export async function POST(request: Request) {
         const supabase = await createClient();
         await supabase.from('jobs').update({
           status: 'error',
-          error_message: error.message || 'Error desconocido al publicar en Instagram'
+          error_message: errorMessage
         }).eq('id', jobId);
       } catch (dbErr) {
         console.error('[publish/instagram] ❌ No se pudo actualizar el job a error:', dbErr);
       }
     }
 
-    return NextResponse.json({ error: error.message || 'Error desconocido' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { uploadToThreads, refreshThreadsToken } from '@/lib/threads';
+import { getPlatformMetadata, formatSocialCaption } from '@/lib/platform-metadata';
 
 export async function POST(request: Request) {
   let jobId: string | undefined;
@@ -15,12 +16,15 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     
     // 1. Get Job
     const { data: job, error: jobError } = await supabase
       .from('jobs')
       .select('*')
       .eq('id', jobId)
+      .eq('user_id', user.id)
       .single();
 
     if (jobError || !job) {
@@ -38,6 +42,7 @@ export async function POST(request: Request) {
     const { data: tokenData, error: tokenError } = await supabase
       .from('social_tokens')
       .select('*')
+      .eq('user_id', user.id)
       .eq('client_id', clientId)
       .eq('platform', 'threads')
       .maybeSingle();
@@ -76,10 +81,9 @@ export async function POST(request: Request) {
        }
     }
 
-    // Format text content
-    const titleString = job.title ? `${job.title}\n\n` : '';
-    const tagsString = job.tags && job.tags.length > 0 ? '\n\n' + job.tags.map((t: string) => `#${t.replace(/^#/, '')}`).join(' ') : '';
-    const finalText = `${titleString}${job.description || ''}${tagsString}`.trim();
+    // Resolve Threads' own title, copy and hashtags (or legacy global fields).
+    const platformMetadata = getPlatformMetadata(job, 'threads');
+    const finalText = formatSocialCaption(platformMetadata);
 
     console.log('[publish/threads] 📤 Publicando en Threads...');
     console.log('[publish/threads] 📹 Video URL:', job.video_url);
@@ -89,7 +93,8 @@ export async function POST(request: Request) {
       accessToken,
       job.video_url,
       finalText,
-      tokenData.platform_user_id
+      tokenData.platform_user_id,
+      platformMetadata.altText,
     );
 
     // 4. Update Job on Success
@@ -117,21 +122,22 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, platform_video_id: videoId, videoUrl });
 
-  } catch (error: any) {
-    console.error('[publish/threads] ❌ Error:', error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al publicar en Threads';
+    console.error('[publish/threads] ❌ Error:', errorMessage);
 
     if (jobId) {
       try {
         const supabase = await createClient();
         await supabase.from('jobs').update({
           status: 'error',
-          error_message: error.message || 'Error desconocido al publicar en Threads'
+          error_message: errorMessage
         }).eq('id', jobId);
       } catch (dbErr) {
         console.error('[publish/threads] ❌ No se pudo actualizar el job a error:', dbErr);
       }
     }
 
-    return NextResponse.json({ error: error.message || 'Error desconocido' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

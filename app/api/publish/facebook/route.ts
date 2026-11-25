@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { uploadToFacebook } from '@/lib/facebook';
 import { refreshMetaToken } from '@/lib/meta';
+import { getPlatformMetadata, appendMetadataHashtags } from '@/lib/platform-metadata';
 
 export async function POST(request: Request) {
   try {
@@ -12,12 +13,15 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     
     // 1. Get Job
     const { data: job, error: jobError } = await supabase
       .from('jobs')
       .select('*')
       .eq('id', jobId)
+      .eq('user_id', user.id)
       .single();
 
     if (jobError || !job) {
@@ -35,6 +39,7 @@ export async function POST(request: Request) {
     const { data: tokenData, error: tokenError } = await supabase
       .from('social_tokens')
       .select('*')
+      .eq('user_id', user.id)
       .eq('client_id', clientId)
       .eq('platform', 'facebook')
       .maybeSingle();
@@ -81,9 +86,9 @@ export async function POST(request: Request) {
        }
     }
 
-    // Format title and description (combine tags if needed, or put them in description)
-    const tagsString = job.tags && job.tags.length > 0 ? '\n\n' + job.tags.map((t: string) => `#${t.replace('#', '')}`).join(' ') : '';
-    const finalDescription = `${job.description || ''}${tagsString}`;
+    // Facebook receives its own title and copy; hashtags are appended without duplicates.
+    const platformMetadata = getPlatformMetadata(job, 'facebook');
+    const finalDescription = appendMetadataHashtags(platformMetadata.description, platformMetadata.hashtags);
 
     // 3. Upload to Facebook
     let scheduledDate: Date | undefined = undefined;
@@ -94,7 +99,7 @@ export async function POST(request: Request) {
     const result = await uploadToFacebook(
       accessToken,
       job.video_url,
-      job.title || '',
+      platformMetadata.title || '',
       finalDescription,
       tokenData.platform_user_id,
       scheduledDate
@@ -126,17 +131,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, platform_video_id: videoId, videoUrl });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API Publish Facebook error:', error);
-    
-    if (error.message && error.message.includes('id')) {
-        // Attempt to update the job with the error
-        try {
-            const supabase = await createClient();
-            // It might fail if we can't extract jobId safely
-        } catch(e) {}
-    }
-
-    return NextResponse.json({ error: error.message || 'Error desconocido' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

@@ -11,7 +11,7 @@ async function waitForContainerReady(
     // Threads usa 'status' (no 'status_code' — ese es de Instagram)
     const statusUrl = `https://graph.threads.net/v1.0/${creationId}?fields=id,status,error_message`;
 
-    console.log(`[threads/poll] ⏳ Intento ${attempt}/${MAX_POLL_ATTEMPTS} — URL: ${statusUrl}`);
+    console.log(`[threads/poll] ⏳ Intento ${attempt}/${MAX_POLL_ATTEMPTS}`);
 
     const statusResponse = await fetch(statusUrl, {
       headers: { Authorization: `Bearer ${accessToken}` }
@@ -20,7 +20,6 @@ async function waitForContainerReady(
     console.log(`[threads/poll] 📊 HTTP status: ${statusResponse.status}`);
 
     const statusData = await statusResponse.json();
-    console.log(`[threads/poll] 📊 Respuesta completa:`, JSON.stringify(statusData, null, 2));
     console.log(`[threads/poll] 📊 status:`, statusData?.status);
     console.log(`[threads/poll] 📊 error_message:`, statusData?.error_message);
     console.log(`[threads/poll] 📊 id presente:`, !!statusData?.id);
@@ -72,10 +71,10 @@ export async function uploadToThreads(
   accessToken: string,
   videoUrl: string,
   text: string,
-  threadsUserId: string
+  threadsUserId: string,
+  altText = '',
 ): Promise<{ id: string; permalink: string }> {
   console.log('[threads/upload] 🚀 Iniciando publicación en Threads');
-  console.log('[threads/upload] 📹 Video URL:', videoUrl);
   console.log('[threads/upload] 👤 Threads User ID:', threadsUserId);
 
   try {
@@ -86,11 +85,10 @@ export async function uploadToThreads(
       video_url: videoUrl,
       text: text,
     });
+    if (altText.trim()) createBody.set('alt_text', altText.trim());
 
     const containerUrl = `https://graph.threads.net/v1.0/${threadsUserId}/threads`;
-    console.log('[threads/upload] 🔑 Access token (primeros 20 chars):', accessToken?.substring(0, 20));
     console.log('[threads/upload] 📦 Creando contenedor en:', containerUrl);
-    console.log('[threads/upload] 📦 Body:', JSON.stringify({ media_type: 'VIDEO', video_url: videoUrl, text: text }));
     const createResponse = await fetch(containerUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -99,8 +97,6 @@ export async function uploadToThreads(
 
     const createData = await createResponse.json();
     console.log('[threads/upload] 📦 HTTP status:', createResponse.status);
-    console.log('[threads/upload] 📦 Respuesta completa:', JSON.stringify(createData, null, 2));
-    console.log('[threads/upload] 📦 Headers:', JSON.stringify(Object.fromEntries(createResponse.headers.entries()), null, 2));
 
     if (createData.error) {
       const errDetail = createData.error.error_user_msg || createData.error.message || JSON.stringify(createData.error);
@@ -133,7 +129,6 @@ export async function uploadToThreads(
     });
 
     const publishData = await publishResponse.json();
-    console.log('[threads/upload] 📤 Respuesta publicación:', JSON.stringify(publishData));
 
     if (publishData.error) {
       throw new Error(`Error al publicar Thread: ${publishData.error.message || JSON.stringify(publishData.error)}`);
@@ -153,7 +148,6 @@ export async function uploadToThreads(
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
       const permalinkData = await permalinkRes.json();
-      console.log('[threads/upload] 🔗 Datos de permalink:', JSON.stringify(permalinkData));
 
       if (permalinkData.permalink) {
         permalink = permalinkData.permalink;
@@ -168,8 +162,9 @@ export async function uploadToThreads(
 
     console.log('[threads/upload] 🔗 Permalink final:', permalink);
     return { id: publishData.id, permalink };
-  } catch (error: any) {
-    console.error('[threads/upload] ❌ Error en uploadToThreads:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Error desconocido';
+    console.error('[threads/upload] ❌ Error en uploadToThreads:', message);
     throw error;
   }
 }

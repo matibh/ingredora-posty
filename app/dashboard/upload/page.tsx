@@ -7,6 +7,13 @@ import Link from 'next/link'
 import { FaYoutube, FaInstagram, FaFacebook, FaTiktok, FaLinkedin } from 'react-icons/fa'
 import { SiPinterest, SiX, SiThreads } from 'react-icons/si'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  parseIngredoraMetadata,
+  INGREDORA_TEMPLATE_PLATFORMS,
+  type ParsedIngredoraMetadata,
+  type PlatformMetadata,
+  type MetadataPlatform,
+} from '@/lib/ingredora-metadata'
 
 interface SocialAccount {
   id: string
@@ -25,7 +32,7 @@ interface SocialToken {
   platform: string
   username: string
   page_name: string | null
-  refresh_token: string | null
+  has_refresh_token: boolean
   expires_at: string | null
   created_at: string
 }
@@ -106,6 +113,14 @@ export default function UploadPage() {
   const [privacy, setPrivacy] = useState('Público')
   const [scheduledFor, setScheduledFor] = useState('')
 
+  // Importación opcional de metadatos de Ingredora Content Studio.
+  const [metadataFile, setMetadataFile] = useState<File | null>(null)
+  const [platformMetadata, setPlatformMetadata] = useState<ParsedIngredoraMetadata | null>(null)
+  const [activeMetadataPlatform, setActiveMetadataPlatform] = useState<MetadataPlatform>('youtube')
+  const [metadataImportError, setMetadataImportError] = useState<string | null>(null)
+  const [metadataImportNotice, setMetadataImportNotice] = useState<string | null>(null)
+  const metadataInputRef = useRef<HTMLInputElement | null>(null)
+
   // Clients & Accounts selection
   const [clients, setClients] = useState<Client[]>([])
   const [loadingClients, setLoadingClients] = useState(true)
@@ -119,20 +134,6 @@ export default function UploadPage() {
         const res = await fetch('/api/clients', { cache: 'no-store' })
         if (res.ok) {
           const data: Client[] = await res.json()
-
-          // ── DEBUG ─────────────────────────────────────────────────
-          console.log('[upload] 🔍 Clientes completos:', data)
-          data.forEach(client => {
-            console.log(`[upload] 🔍 Cliente ${client.name} (${client.id}):`)
-            console.log(`[upload] 🔍   client_social_accounts:`, client.client_social_accounts)
-            console.log(`[upload] 🔍   social_tokens:`, (client as any).social_tokens)
-            // Lógica aplazada porque getClientAccounts aún no está en scope, lo vemos abajo
-          })
-          if (data.length === 0) {
-            console.log('⚠️ No se encontraron clientes para este usuario')
-          }
-          // ──────────────────────────────────────────────────────────
-
           setClients(data)
 
           // Preselect if client query param exists
@@ -184,7 +185,7 @@ export default function UploadPage() {
         accessExpired = new Date(t.expires_at) <= now
       }
       const isMetaPlatform = ['facebook', 'instagram', 'threads'].includes(t.platform)
-      const hasRefresh = isMetaPlatform || !!t.refresh_token
+      const hasRefresh = isMetaPlatform || t.has_refresh_token
 
       // Log de diagnóstico (consola del navegador)
       console.log(
@@ -240,6 +241,83 @@ export default function UploadPage() {
 
   const fmtSize = (b: number) =>
     b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`
+
+  async function handleMetadataFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setMetadataFile(file)
+    setPlatformMetadata(null)
+    setMetadataImportError(null)
+    setMetadataImportNotice(null)
+
+    if (!/\.txt$/i.test(file.name)) {
+      setMetadataImportError('El archivo debe tener extensión .txt.')
+      return
+    }
+
+    if (file.size > 256 * 1024) {
+      setMetadataImportError('El TXT supera el límite de 256 KB.')
+      return
+    }
+
+    try {
+      const parsed = parseIngredoraMetadata(await file.text())
+      setPlatformMetadata(parsed)
+
+      // Keep @GLOBAL in the legacy job columns for compatibility and summaries.
+      // The platform-specific object below drives each publishing route.
+      const youtube = parsed.platforms.youtube
+      setTitle(parsed.global.title || youtube.title)
+      setDescription(parsed.global.description || youtube.description)
+
+      const sourceTags = parsed.global.tags || youtube.tags
+      const importedTags: string[] = []
+      let importedTagsLength = 0
+      for (const rawTag of sourceTags.split(/[,;\n]/)) {
+        const tag = rawTag.trim().replace(/^#/, '')
+        if (!tag || importedTags.includes(tag) || importedTags.length >= 30) continue
+        if (importedTagsLength + tag.length > 500) break
+        importedTags.push(tag)
+        importedTagsLength += tag.length
+      }
+      setTags(importedTags)
+      setTagInput('')
+      setError(null)
+      setMetadataImportNotice(
+        'TXT importado. Se extrajeron los campos globales y los bloques de YouTube, Instagram, TikTok, Facebook y X. Threads usa @GLOBAL cuando no tiene un bloque propio. El comentario para fijar se guarda, pero no se publica automáticamente; el texto alternativo se utiliza en Instagram y Threads.',
+      )
+    } catch (importError) {
+      setMetadataImportError(
+        importError instanceof Error ? importError.message : 'No se pudo leer el TXT.',
+      )
+    }
+  }
+
+  function clearMetadataFile() {
+    setMetadataFile(null)
+    setPlatformMetadata(null)
+    setMetadataImportError(null)
+    setMetadataImportNotice(null)
+    if (metadataInputRef.current) metadataInputRef.current.value = ''
+  }
+
+  function updatePlatformMetadata(field: keyof PlatformMetadata, value: string) {
+    setPlatformMetadata(current => {
+      if (!current) return current
+
+      return {
+        ...current,
+        platforms: {
+          ...current.platforms,
+          [activeMetadataPlatform]: {
+            ...current.platforms[activeMetadataPlatform],
+            [field]: value,
+          },
+        },
+      }
+    })
+  }
 
   // Toggle todas las cuentas de un cliente (usa lista unificada)
   const handleClientToggle = (client: Client) => {
@@ -310,10 +388,22 @@ export default function UploadPage() {
   }
 
   const tagsLength = tags.reduce((acc, curr) => acc + curr.length, 0)
+  const metadataPreview = platformMetadata?.platforms[activeMetadataPlatform]
+  const metadataPlatformHasBlock = platformMetadata?.hasPlatformBlock[activeMetadataPlatform] ?? false
+  const metadataNamesMatch = !videoFile || !metadataFile ||
+    videoFile.name.replace(/\.[^.]+$/, '').trim().toLowerCase() ===
+    metadataFile.name.replace(/\.txt$/i, '').trim().toLowerCase()
 
   async function handleSubmit() {
     if (!videoFile) return setError('Por favor selecciona un video.')
-    if (!title.trim()) return setError('El título es obligatorio.')
+    if (metadataImportError) return setError('Corregí el TXT antes de continuar: ' + metadataImportError)
+    if (metadataFile && !metadataNamesMatch) return setError('El MP4 y el TXT deben tener el mismo nombre base.')
+    const hasImportedPlatformCopy = platformMetadata
+      ? Object.values(platformMetadata.platforms).some(copy => copy.title.trim() || copy.description.trim())
+      : false
+    if (!title.trim() && !hasImportedPlatformCopy) {
+      return setError('El título es obligatorio o debes importar metadatos de alguna plataforma.')
+    }
     
     if (privacy === 'Programado') {
       if (!scheduledFor) return setError('Por favor elige una fecha y hora para la publicación.')
@@ -389,7 +479,8 @@ export default function UploadPage() {
           tags,
           privacy,
           videoUrl: publicUrl,
-          scheduled_for: privacy === 'Programado' ? new Date(scheduledFor).toISOString() : undefined
+          scheduled_for: privacy === 'Programado' ? new Date(scheduledFor).toISOString() : undefined,
+          platform_metadata: platformMetadata ?? undefined
         })
       })
       clearInterval(interval)
@@ -523,10 +614,10 @@ export default function UploadPage() {
 
         <div className="mb-10">
           <h1 className="text-3xl font-extrabold mb-3 tracking-tighter" style={{ color: '#F0F4F8' }}>
-            Sube y publica tu video
+            Nueva publicación
           </h1>
           <p className="leading-relaxed" style={{ color: '#A8B8C8' }}>
-            Tu video ya editado se distribuirá en las cuentas de redes sociales de tus clientes.
+            Subí el MP4 y su TXT de Ingredora. Posty completará los textos de cada red para que puedas revisarlos y publicar desde tus cuentas conectadas.
           </p>
         </div>
 
@@ -642,8 +733,148 @@ export default function UploadPage() {
             </div>
           )}
 
+          {/* Importación del TXT de metadatos Ingredora */}
+          <div className="border-t border-[#334155] pt-6 space-y-4">
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-1.5">
+                <label htmlFor="metadata-file-input" className="block text-sm font-bold text-[#F0F4F8]">
+                  TXT de metadatos de Ingredora <span className="text-xs font-medium text-[#A8B8C8]">(recomendado)</span>
+                </label>
+                {metadataFile && (
+                  <button
+                    type="button"
+                    onClick={clearMetadataFile}
+                    disabled={isUploading}
+                    className="text-xs font-semibold text-[#F87171] hover:text-white disabled:opacity-50"
+                  >
+                    Quitar TXT
+                  </button>
+                )}
+              </div>
+              <input
+                ref={metadataInputRef}
+                id="metadata-file-input"
+                type="file"
+                accept=".txt,text/plain"
+                onChange={handleMetadataFileChange}
+                disabled={isUploading}
+                className="block w-full text-sm text-[#A8B8C8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#1A6B8A] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[#237f9f] disabled:opacity-50"
+              />
+              <p className="mt-2 text-xs text-[#6A7E94]">
+                Seleccioná el TXT correspondiente al MP4. Idealmente ambos archivos deben compartir el mismo nombre. Posty reconoce INGREDORA_PUBLISHING_TEMPLATE_V1 y completa los campos de cada red.
+              </p>
+              {metadataFile && (
+                <p className="mt-2 text-xs text-[#A8B8C8]">
+                  Archivo: <span className="font-semibold text-[#F0F4F8]">{metadataFile.name}</span>
+                </p>
+              )}
+              {metadataFile && videoFile && !metadataNamesMatch && (
+                <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                  El nombre base del TXT no coincide con el MP4 ({videoFile.name.replace(/\.[^.]+$/, '')}). Revisá que hayas elegido el archivo correcto.
+                </p>
+              )}
+              {metadataImportError && (
+                <p role="alert" className="mt-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                  {metadataImportError}
+                </p>
+              )}
+              {metadataImportNotice && (
+                <p role="status" className="mt-2 rounded-lg border border-[#1A6B8A]/50 bg-[#1A6B8A]/10 px-3 py-2 text-xs leading-relaxed text-[#B8E6F5]">
+                  {metadataImportNotice}
+                </p>
+              )}
+            </div>
+
+            {platformMetadata && metadataPreview && (
+              <div className="rounded-2xl border border-[#334155] bg-[#181E26] p-4 space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#F0F4F8]">Vista previa de metadatos por red</h3>
+                    <p className="mt-1 text-xs text-[#A8B8C8]">
+                      {metadataPlatformHasBlock
+                        ? 'Datos de @GLOBAL + @' + activeMetadataPlatform.toUpperCase()
+                        : 'Datos heredados de @GLOBAL; el TXT no incluye un bloque propio para esta red.'}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[#334155] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#A8B8C8]">
+                    TXT V1
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {INGREDORA_TEMPLATE_PLATFORMS.map(platform => (
+                    <button
+                      key={platform.id}
+                      type="button"
+                      onClick={() => setActiveMetadataPlatform(platform.id)}
+                      aria-pressed={activeMetadataPlatform === platform.id}
+                      className={'flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-colors ' + (
+                        activeMetadataPlatform === platform.id
+                          ? 'border-[#1A6B8A] bg-[#1A6B8A]/20 text-white'
+                          : 'border-[#334155] bg-[#232B36] text-[#A8B8C8] hover:border-[#1A6B8A]'
+                      )}
+                    >
+                      {PLATFORM_ICONS[platform.id]}
+                      {platform.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] leading-relaxed text-[#A8B8C8]">
+                  TikTok y X se importan y quedan guardados para cada publicación, pero Posty todavía no tiene integraciones de envío activas para esas dos redes. Los destinos actualmente habilitados son YouTube, Instagram, Facebook y Threads.
+                </p>
+
+                <div className="space-y-3">
+                  {([
+                    { key: 'title', label: 'Título', multiline: false, rows: 1 },
+                    { key: 'description', label: 'Descripción / copy', multiline: true, rows: 5 },
+                    { key: 'hashtags', label: 'Hashtags', multiline: true, rows: 2 },
+                    { key: 'tags', label: 'Etiquetas / tags', multiline: true, rows: 3 },
+                    { key: 'pinnedComment', label: 'Comentario para fijar', multiline: true, rows: 2 },
+                    { key: 'altText', label: 'Texto alternativo / accesibilidad', multiline: true, rows: 3 },
+                  ] as const).map(field => (
+                    <label key={field.key} className="block">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-[#6A7E94]">
+                        {field.label}
+                      </span>
+                      {field.multiline ? (
+                        <textarea
+                          value={metadataPreview[field.key]}
+                          onChange={event => updatePlatformMetadata(field.key, event.target.value)}
+                          rows={field.rows}
+                          disabled={isUploading}
+                          className="w-full rounded-lg border border-[#334155]/70 bg-[#232B36] px-3 py-2 text-xs leading-relaxed text-[#DCE5EF] placeholder-[#6A7E94] focus:border-[#1A6B8A] focus:outline-none focus:ring-1 focus:ring-[#1A6B8A] disabled:opacity-60"
+                          placeholder="Sin contenido en el TXT"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={metadataPreview[field.key]}
+                          onChange={event => updatePlatformMetadata(field.key, event.target.value)}
+                          disabled={isUploading}
+                          className="w-full rounded-lg border border-[#334155]/70 bg-[#232B36] px-3 py-2 text-xs text-[#DCE5EF] placeholder-[#6A7E94] focus:border-[#1A6B8A] focus:outline-none focus:ring-1 focus:ring-[#1A6B8A] disabled:opacity-60"
+                          placeholder="Sin título en el TXT"
+                        />
+                      )}
+                    </label>
+                  ))}
+                  <p className="text-[11px] leading-relaxed text-[#6A7E94]">
+                    Los cambios se guardan con esta publicación. YouTube, Instagram, Facebook y Threads usan sus propios títulos, copies y hashtags. El comentario para fijar se conserva, pero no se publica automáticamente; el texto alternativo se utiliza en Instagram y Threads.
+                  </p>
+                </div>
+
+                {platformMetadata.warnings.map((warning, index) => (
+                  <p key={index} className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200">
+                    {warning}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Metadatos del video */}
           <div className="border-t border-[#334155] pt-6 space-y-5">
+            {!platformMetadata && (
+              <>
             <div>
               <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Título <span className="text-red-500">*</span></label>
               <input
@@ -668,7 +899,14 @@ export default function UploadPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            </>)}
+            {platformMetadata && (
+              <p className="rounded-lg border border-[#334155] bg-[#181E26] px-3 py-2 text-xs leading-relaxed text-[#A8B8C8]">
+                Los copies se editan en los paneles de cada red de arriba. Los valores globales del TXT quedan como respaldo y no reemplazan los textos específicos.
+              </p>
+            )}
+            <div className={platformMetadata ? 'grid grid-cols-1 gap-5' : 'grid grid-cols-1 sm:grid-cols-2 gap-5'}>
+              {!platformMetadata && (
               <div>
                 <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Tags / Hashtags</label>
                 <div 
@@ -718,6 +956,7 @@ export default function UploadPage() {
                 </div>
               </div>
               
+              )}
               <div>
                 <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Visibilidad</label>
                 <select
@@ -744,9 +983,9 @@ export default function UploadPage() {
                   onClick={(e) => {
                     try {
                       if ('showPicker' in HTMLInputElement.prototype) {
-                        (e.currentTarget as any).showPicker()
+                        e.currentTarget.showPicker()
                       }
-                    } catch (err) {
+                    } catch {
                       // fallback for older browsers
                     }
                   }}
@@ -762,7 +1001,7 @@ export default function UploadPage() {
                   }}
                 />
                 <p className="text-xs text-[#A8B8C8] mt-1.5">
-                  El video se subirá a YouTube como "Privado" y pasará a "Público" en la fecha indicada.
+                  El video se subirá a YouTube como &quot;Privado&quot; y pasará a &quot;Público&quot; en la fecha indicada.
                 </p>
               </div>
             )}
