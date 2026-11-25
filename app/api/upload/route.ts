@@ -22,10 +22,33 @@ export async function POST(request: Request) {
 
     // 2. Obtener los datos del JSON
     const body = await request.json()
-    const { videoUrl, title, description, tags, privacy, scheduled_for } = body
+    const { videoUrl, title, description, tags, privacy, scheduled_for, platform_metadata } = body
 
     if (!videoUrl) {
       return NextResponse.json({ error: 'Falta la URL del video' }, { status: 400 })
+    }
+
+    let normalizedPlatformMetadata: Record<string, unknown> | undefined
+
+    if (platform_metadata !== undefined) {
+      if (
+        !platform_metadata ||
+        typeof platform_metadata !== 'object' ||
+        Array.isArray(platform_metadata) ||
+        platform_metadata.version !== 'INGREDORA_PUBLISHING_TEMPLATE_V1' ||
+        !platform_metadata.platforms ||
+        typeof platform_metadata.platforms !== 'object' ||
+        Array.isArray(platform_metadata.platforms)
+      ) {
+        return NextResponse.json({ error: 'Los metadatos por plataforma no tienen un formato válido.' }, { status: 400 })
+      }
+
+      const metadataSize = new TextEncoder().encode(JSON.stringify(platform_metadata)).byteLength
+      if (metadataSize > 256 * 1024) {
+        return NextResponse.json({ error: 'Los metadatos superan el límite permitido.' }, { status: 413 })
+      }
+
+      normalizedPlatformMetadata = platform_metadata as Record<string, unknown>
     }
 
     const publicUrl = videoUrl
@@ -72,6 +95,7 @@ export async function POST(request: Request) {
         tags: Array.isArray(tags) ? tags : [],
         privacy: privacy || 'Público',
         ...(scheduled_for ? { scheduled_for } : {}),
+        ...(normalizedPlatformMetadata ? { platform_metadata: normalizedPlatformMetadata } : {}),
       })
       .select()
       .single()
