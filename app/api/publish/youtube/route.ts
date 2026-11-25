@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { uploadToYouTube, refreshYouTubeToken, mapPrivacyStatus } from '@/lib/youtube'
+import { uploadToYouTube, refreshYouTubeToken } from '@/lib/youtube'
 import { getPlatformMetadata, appendMetadataHashtags } from '@/lib/platform-metadata'
 
 export const maxDuration = 300 // 5 minutos — la subida de video puede tardar
@@ -85,10 +85,7 @@ export async function POST(request: Request) {
 
     // 7. Subir el video a YouTube
     console.log('[publish/youtube] Iniciando subida para cliente:', clientId)
-    const privacyStatus = mapPrivacyStatus(job.privacy || 'público')
-    const publishAt = job.scheduled_for ? new Date(job.scheduled_for).toISOString() : undefined
-
-    if (publishAt) console.log('[publish/youtube] 📅 Video programado para:', publishAt)
+    const privacyStatus = 'public' as const
 
     let uploadResult
     try {
@@ -98,9 +95,8 @@ export async function POST(request: Request) {
         job.video_url,
         platformMetadata.title || 'Video sin título',
         appendMetadataHashtags(platformMetadata.description, platformMetadata.hashtags),
-        platformMetadata.tags,
+        [],
         privacyStatus,
-        publishAt,
       )
     } catch (uploadErr: unknown) {
       const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr)
