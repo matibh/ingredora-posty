@@ -289,7 +289,7 @@ export default function UploadPage() {
         const sourceTags = parsed.global.tags || parsed.platforms.youtube.tags
         const importedTags: string[] = []
         let importedTagsLength = 0
-        for (const rawTag of sourceTags.split(/[,;\\n]/)) {
+        for (const rawTag of sourceTags.split(/[,;\n]/)) {
           const tag = rawTag.trim().replace(/^#/, '')
           if (!tag || importedTags.includes(tag) || importedTags.length >= 30) continue
           if (importedTagsLength + tag.length > 500) break
