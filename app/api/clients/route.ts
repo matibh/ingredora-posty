@@ -29,11 +29,14 @@ export async function GET() {
     const sanitizedClients = (clients ?? []).map((client) => ({
       ...client,
       social_tokens: (client.social_tokens ?? [])
-        .filter((token) => token.client_id === client.id)
-        .map(({ refresh_token, ...token }) => ({
-          ...token,
-          has_refresh_token: Boolean(refresh_token),
-        })),
+        .filter((token: { client_id: string }) => token.client_id === client.id)
+        .map((token: { refresh_token: string | null; [key: string]: unknown }) => {
+          const { refresh_token, ...safeToken } = token
+          return {
+            ...safeToken,
+            has_refresh_token: Boolean(refresh_token),
+          }
+        }),
     }))
 
     return NextResponse.json(sanitizedClients, {
