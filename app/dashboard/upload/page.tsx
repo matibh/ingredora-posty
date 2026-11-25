@@ -9,6 +9,7 @@ import { SiPinterest, SiX, SiThreads } from 'react-icons/si'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   parseIngredoraMetadata,
+  createUniformIngredoraMetadata,
   INGREDORA_TEMPLATE_PLATFORMS,
   type ParsedIngredoraMetadata,
   type PlatformMetadata,
@@ -59,6 +60,8 @@ interface Client {
   social_tokens: SocialToken[]
 }
 
+const PUBLISHABLE_PLATFORMS = ['youtube', 'instagram', 'facebook', 'threads'] as const
+
 const PLATFORM_ICONS: Record<string, React.ReactNode> = {
   youtube: <FaYoutube className="w-3.5 h-3.5" style={{ color: '#EF4444' }} />,
   instagram: <FaInstagram className="w-3.5 h-3.5" style={{ color: '#EC4899' }} />,
@@ -108,10 +111,7 @@ export default function UploadPage() {
   // Metadatos del video
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [tags, setTags] = useState<string[]>([])
-  const [tagInput, setTagInput] = useState('')
-  const [privacy, setPrivacy] = useState('Público')
-  const [scheduledFor, setScheduledFor] = useState('')
+  const [hashtags, setHashtags] = useState('')
 
   // Importación opcional de metadatos de Ingredora Content Studio.
   const [metadataFile, setMetadataFile] = useState<File | null>(null)
@@ -143,7 +143,7 @@ export default function UploadPage() {
             const client = data.find(c => c.id === targetClientId)
             if (client) {
               const preselected: Record<string, boolean> = {}
-              const all = getClientAccounts(client)
+              const all = getPublishableClientAccounts(client)
               all.forEach(acc => { preselected[acc.id] = true })
               setSelectedAccounts(preselected)
             }
@@ -265,27 +265,13 @@ export default function UploadPage() {
       const parsed = parseIngredoraMetadata(await file.text())
       setPlatformMetadata(parsed)
 
-      // Keep @GLOBAL in the legacy job columns for compatibility and summaries.
-      // The platform-specific object below drives each publishing route.
-      const youtube = parsed.platforms.youtube
-      setTitle(parsed.global.title || youtube.title)
-      setDescription(parsed.global.description || youtube.description)
-
-      const sourceTags = parsed.global.tags || youtube.tags
-      const importedTags: string[] = []
-      let importedTagsLength = 0
-      for (const rawTag of sourceTags.split(/[,;\n]/)) {
-        const tag = rawTag.trim().replace(/^#/, '')
-        if (!tag || importedTags.includes(tag) || importedTags.length >= 30) continue
-        if (importedTagsLength + tag.length > 500) break
-        importedTags.push(tag)
-        importedTagsLength += tag.length
-      }
-      setTags(importedTags)
-      setTagInput('')
+      // Keep global values as a summary; each API reads its own platform block.
+      setTitle(parsed.global.title)
+      setDescription(parsed.global.description)
+      setHashtags(parsed.global.hashtags)
       setError(null)
       setMetadataImportNotice(
-        'TXT importado. Se extrajeron los campos globales y los bloques de YouTube, Instagram, TikTok, Facebook y X. Threads usa @GLOBAL cuando no tiene un bloque propio. El comentario para fijar se guarda, pero no se publica automáticamente; el texto alternativo se utiliza en Instagram y Threads.',
+        'TXT importado. Se utilizarán únicamente TITLE, DESCRIPTION y HASHTAGS. Podés revisar los tres campos para cada red; el TXT nunca elige los destinatarios.',
       )
     } catch (importError) {
       setMetadataImportError(
@@ -319,9 +305,15 @@ export default function UploadPage() {
     })
   }
 
-  // Toggle todas las cuentas de un cliente (usa lista unificada)
+  function getPublishableClientAccounts(client: Client): UnifiedAccount[] {
+    return getClientAccounts(client).filter(account =>
+      PUBLISHABLE_PLATFORMS.includes(account.platform as (typeof PUBLISHABLE_PLATFORMS)[number]),
+    )
+  }
+
+  // Toggle all accounts supported by Posty's active publishing APIs.
   const handleClientToggle = (client: Client) => {
-    const all = getClientAccounts(client)
+    const all = getPublishableClientAccounts(client)
     const allSelected = all.every(acc => !!selectedAccounts[acc.id])
     setSelectedAccounts(prev => {
       const next = { ...prev }
@@ -343,51 +335,6 @@ export default function UploadPage() {
     })
   }
 
-  // Manejo de tags
-  const addTag = (val: string) => {
-    const newTag = val.trim().replace(/^#/, '') // Remove leading hash if any
-    if (!newTag) return
-
-    // Validations
-    if (tags.includes(newTag)) {
-      setTagInput('')
-      return
-    }
-    if (tags.length >= 30) return
-    
-    const currentLength = tags.reduce((acc, curr) => acc + curr.length, 0)
-    if (currentLength + newTag.length > 500) return
-
-    setTags(prev => [...prev, newTag])
-    setTagInput('')
-  }
-
-  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      addTag(tagInput)
-    } else if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
-      // Opcional: borrar la última tag si el input está vacío y se presiona Backspace
-      setTags(tags.slice(0, -1))
-    }
-  }
-
-  const handleTagChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value
-    // En móviles a veces no se captura el onKeyDown correctamente
-    if (val.includes(',')) {
-      const parts = val.split(',')
-      addTag(parts[0])
-    } else {
-      setTagInput(val)
-    }
-  }
-
-  const removeTag = (indexToRemove: number) => {
-    setTags(tags.filter((_, index) => index !== indexToRemove))
-  }
-
-  const tagsLength = tags.reduce((acc, curr) => acc + curr.length, 0)
   const metadataPreview = platformMetadata?.platforms[activeMetadataPlatform]
   const metadataPlatformHasBlock = platformMetadata?.hasPlatformBlock[activeMetadataPlatform] ?? false
   const metadataNamesMatch = !videoFile || !metadataFile ||
@@ -399,16 +346,12 @@ export default function UploadPage() {
     if (metadataImportError) return setError('Corregí el TXT antes de continuar: ' + metadataImportError)
     if (metadataFile && !metadataNamesMatch) return setError('El MP4 y el TXT deben tener el mismo nombre base.')
     const hasImportedPlatformCopy = platformMetadata
-      ? Object.values(platformMetadata.platforms).some(copy => copy.title.trim() || copy.description.trim())
+      ? Object.values(platformMetadata.platforms).some(copy =>
+          copy.title.trim() || copy.description.trim() || copy.hashtags.trim(),
+        )
       : false
     if (!title.trim() && !hasImportedPlatformCopy) {
       return setError('El título es obligatorio o debes importar metadatos de alguna plataforma.')
-    }
-    
-    if (privacy === 'Programado') {
-      if (!scheduledFor) return setError('Por favor elige una fecha y hora para la publicación.')
-      const minDate = new Date(Date.now() + 10 * 60000)
-      if (new Date(scheduledFor) < minDate) return setError('La fecha de programación debe ser al menos 10 minutos en el futuro (requerido por Facebook y otras plataformas).')
     }
     
     // Validate that at least one account is selected
@@ -476,11 +419,14 @@ export default function UploadPage() {
         body: JSON.stringify({
           title,
           description,
-          tags,
-          privacy,
+          tags: [],
+          privacy: 'Público',
           videoUrl: publicUrl,
-          scheduled_for: privacy === 'Programado' ? new Date(scheduledFor).toISOString() : undefined,
-          platform_metadata: platformMetadata ?? undefined
+          platform_metadata: platformMetadata ?? createUniformIngredoraMetadata({
+            title,
+            description,
+            hashtags,
+          }),
         })
       })
       clearInterval(interval)
@@ -532,9 +478,8 @@ export default function UploadPage() {
       console.log('[upload] 📦 Cuentas por cliente:', accountsByClient)
 
       // Para cada cliente, verificar qué plataformas OAuth están seleccionadas
-      const OAUTH_PLATFORMS = ['youtube', 'facebook', 'instagram', 'threads']
       for (const [clientId, accounts] of Object.entries(accountsByClient)) {
-        const selectedOauthPlatforms = OAUTH_PLATFORMS.filter(platform => 
+        const selectedOauthPlatforms = PUBLISHABLE_PLATFORMS.filter(platform => 
           accounts.some(a => a.platform === platform)
         )
         
@@ -826,11 +771,8 @@ export default function UploadPage() {
                 <div className="space-y-3">
                   {([
                     { key: 'title', label: 'Título', multiline: false, rows: 1 },
-                    { key: 'description', label: 'Descripción / copy', multiline: true, rows: 5 },
+                    { key: 'description', label: 'Descripción', multiline: true, rows: 5 },
                     { key: 'hashtags', label: 'Hashtags', multiline: true, rows: 2 },
-                    { key: 'tags', label: 'Etiquetas / tags', multiline: true, rows: 3 },
-                    { key: 'pinnedComment', label: 'Comentario para fijar', multiline: true, rows: 2 },
-                    { key: 'altText', label: 'Texto alternativo / accesibilidad', multiline: true, rows: 3 },
                   ] as const).map(field => (
                     <label key={field.key} className="block">
                       <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-[#6A7E94]">
@@ -858,7 +800,7 @@ export default function UploadPage() {
                     </label>
                   ))}
                   <p className="text-[11px] leading-relaxed text-[#6A7E94]">
-                    Los cambios se guardan con esta publicación. YouTube, Instagram, Facebook y Threads usan sus propios títulos, copies y hashtags. El comentario para fijar se conserva, pero no se publica automáticamente; el texto alternativo se utiliza en Instagram y Threads.
+                    Se guardan únicamente título, descripción y hashtags de cada bloque. Las redes de destino se seleccionan por separado en la sección inferior.
                   </p>
                 </div>
 
@@ -871,146 +813,71 @@ export default function UploadPage() {
             )}
           </div>
 
-          {/* Metadatos del video */}
+          {/* Campos generales de la publicación */}
           <div className="border-t border-[#334155] pt-6 space-y-5">
-            {!platformMetadata && (
+            {!platformMetadata ? (
               <>
-            <div>
-              <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Título <span className="text-red-500">*</span></label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ej. Nuevo video promocional"
-                className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all"
-                style={{ backgroundColor: '#181E26', border: '1px solid #334155' }}
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Descripción / Caption</label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Escribe lo que acompañará a tu video..."
-                rows={3}
-                className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all resize-none"
-                style={{ backgroundColor: '#181E26', border: '1px solid #334155' }}
-              />
-            </div>
-
-            </>)}
-            {platformMetadata && (
-              <p className="rounded-lg border border-[#334155] bg-[#181E26] px-3 py-2 text-xs leading-relaxed text-[#A8B8C8]">
-                Los copies se editan en los paneles de cada red de arriba. Los valores globales del TXT quedan como respaldo y no reemplazan los textos específicos.
-              </p>
-            )}
-            <div className={platformMetadata ? 'grid grid-cols-1 gap-5' : 'grid grid-cols-1 sm:grid-cols-2 gap-5'}>
-              {!platformMetadata && (
-              <div>
-                <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Tags / Hashtags</label>
-                <div 
-                  className="w-full px-3 py-2 rounded-xl flex flex-wrap gap-2 items-center transition-all cursor-text focus-within:ring-2 focus-within:ring-[#1A6B8A]"
-                  style={{ backgroundColor: '#181E26', border: '1px solid #334155' }}
-                  onClick={() => document.getElementById('tag-input')?.focus()}
-                >
-                  {tags.map((tag, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold"
-                      style={{ backgroundColor: '#334155', color: '#F0F4F8' }}
-                    >
-                      {tag}
-                      <button 
-                        type="button" 
-                        onClick={(e) => { e.stopPropagation(); removeTag(idx) }}
-                        className="text-[#F87171] hover:text-white transition-colors p-0.5 rounded-full hover:bg-red-500/20"
-                      >
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
+                <div>
+                  <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Título <span className="text-red-500">*</span></label>
                   <input
-                    id="tag-input"
                     type="text"
-                    value={tagInput}
-                    onChange={handleTagChange}
-                    onKeyDown={handleTagKeyDown}
-                    onBlur={() => {
-                      if (tagInput.trim()) addTag(tagInput)
-                    }}
-                    placeholder={tags.length === 0 ? "marketing, tips, viral (presiona Enter o coma)" : ""}
-                    className="flex-1 min-w-[120px] bg-transparent text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none"
-                    disabled={tags.length >= 30 || tagsLength >= 500}
+                    value={title}
+                    onChange={event => setTitle(event.target.value)}
+                    placeholder="Título de la publicación"
+                    className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all"
+                    style={{ backgroundColor: '#181E26', border: '1px solid #334155' }}
+                    disabled={isUploading}
                   />
                 </div>
-                <div className="flex justify-between items-center mt-1.5">
-                  <p className="text-xs text-[#A8B8C8]">
-                    {tags.length}/30 tags
-                  </p>
-                  <p className="text-xs text-[#A8B8C8]">
-                    {tagsLength}/500 caracteres
-                  </p>
+                <div>
+                  <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Descripción</label>
+                  <textarea
+                    value={description}
+                    onChange={event => setDescription(event.target.value)}
+                    placeholder="Descripción que acompañará al video"
+                    rows={4}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all resize-none"
+                    style={{ backgroundColor: '#181E26', border: '1px solid #334155' }}
+                    disabled={isUploading}
+                  />
                 </div>
-              </div>
-              
-              )}
-              <div>
-                <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Visibilidad</label>
-                <select
-                  value={privacy}
-                  onChange={(e) => setPrivacy(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all appearance-none"
-                  style={{ backgroundColor: '#181E26', border: '1px solid #334155', backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236A7E94' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.5rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.5em 1.5em' }}
-                >
-                  <option value="Público">Público</option>
-                  <option value="Privado">Privado</option>
-                  <option value="No listado">No listado</option>
-                  <option value="Programado">Programado</option>
-                </select>
-              </div>
-            </div>
-
-            {privacy === 'Programado' && (
-              <div>
-                <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Fecha y hora de publicación <span className="text-red-500">*</span></label>
-                <input
-                  type="datetime-local"
-                  value={scheduledFor}
-                  onChange={(e) => setScheduledFor(e.target.value)}
-                  onClick={(e) => {
-                    try {
-                      if ('showPicker' in HTMLInputElement.prototype) {
-                        e.currentTarget.showPicker()
-                      }
-                    } catch {
-                      // fallback for older browsers
-                    }
-                  }}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all cursor-pointer appearance-none [&::-webkit-calendar-picker-indicator]:opacity-0 relative"
-                  style={{ 
-                    backgroundColor: '#181E26', 
-                    border: '1px solid #334155', 
-                    colorScheme: 'dark',
-                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236A7E94' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                    backgroundPosition: 'right 0.5rem center',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundSize: '1.5em 1.5em'
-                  }}
-                />
-                <p className="text-xs text-[#A8B8C8] mt-1.5">
-                  El video se subirá a YouTube como &quot;Privado&quot; y pasará a &quot;Público&quot; en la fecha indicada.
-                </p>
-              </div>
+                <div>
+                  <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Hashtags</label>
+                  <textarea
+                    value={hashtags}
+                    onChange={event => setHashtags(event.target.value)}
+                    placeholder="#Ingredora #EntrePartidas #ComediaArgentina"
+                    rows={2}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm text-[#F0F4F8] placeholder-[#6A7E94] focus:outline-none focus:ring-2 focus:ring-[#1A6B8A] transition-all resize-none"
+                    style={{ backgroundColor: '#181E26', border: '1px solid #334155' }}
+                    disabled={isUploading}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="rounded-lg border border-[#334155] bg-[#181E26] px-3 py-2 text-xs leading-relaxed text-[#A8B8C8]">
+                Revisá y editá el título, la descripción y los hashtags en las pestañas de cada plataforma.
+              </p>
             )}
+
+            <div className="flex items-center justify-between rounded-xl border border-[#334155] bg-[#181E26] px-4 py-3">
+              <div>
+                <p className="text-sm font-bold text-[#F0F4F8]">Visibilidad</p>
+                <p className="mt-1 text-xs text-[#A8B8C8]">Todas las publicaciones se enviarán como públicas e inmediatamente.</p>
+              </div>
+              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">Público</span>
+            </div>
           </div>
 
           {/* Selector de Clientes y Cuentas */}
           <div className="border-t border-[#334155] pt-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-[#F0F4F8]">Selecciona los destinatarios</h3>
+              <div>
+                <h3 className="text-lg font-bold text-[#F0F4F8]">Selecciona los destinatarios</h3>
+                <p className="mt-1 text-xs leading-relaxed text-[#A8B8C8]">
+                  Elegí manualmente las cuentas donde querés publicar. El TXT solo completa el contenido de cada plataforma: nunca selecciona ni deselecciona redes.
+                </p>
+              </div>
               
               {/* Botón Debug */}
               <button
@@ -1046,7 +913,7 @@ export default function UploadPage() {
             ) : (() => {
               // Filtrar clientes que tienen al menos una cuenta conectada
               const clientsWithAccounts = clients
-                .map(client => ({ client, accounts: getClientAccounts(client) }))
+                .map(client => ({ client, accounts: getPublishableClientAccounts(client) }))
                 .filter(({ accounts }) => accounts.length > 0)
 
               if (clients.length === 0) {
