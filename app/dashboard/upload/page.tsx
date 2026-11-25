@@ -279,12 +279,12 @@ export default function UploadPage() {
       setPlatformMetadata(parsed)
 
       // Posty todavía publica con sus campos generales. Durante esta etapa,
-      // usamos el copy de YouTube como valores iniciales compatibles.
+      // usamos @GLOBAL como base neutral para no aplicar el copy de una red a las demás.
       const youtube = parsed.platforms.youtube
-      setTitle(youtube.title || parsed.global.title)
-      setDescription(youtube.description || parsed.global.description)
+      setTitle(parsed.global.title || youtube.title)
+      setDescription(parsed.global.description || youtube.description)
 
-      const sourceTags = youtube.tags || parsed.global.tags
+      const sourceTags = parsed.global.tags || youtube.tags
       const importedTags: string[] = []
       let importedTagsLength = 0
       for (const rawTag of sourceTags.split(/[,;\n]/)) {
@@ -298,7 +298,7 @@ export default function UploadPage() {
       setTagInput('')
       setError(null)
       setMetadataImportNotice(
-        'TXT importado. Los campos generales se completaron con los datos de YouTube. En esta primera etapa, Posty todavía publica con esos campos generales; los textos particulares de cada red se conectarán en la siguiente etapa.',
+        'TXT importado. Los campos generales se completaron con @GLOBAL. La vista por red es de consulta en esta etapa; Posty todavía publica con los campos generales. La edición y el envío de copys independientes se incorporarán en la siguiente etapa.',
       )
     } catch (importError) {
       setMetadataImportError(
