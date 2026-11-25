@@ -11,6 +11,7 @@ import {
   parseIngredoraMetadata,
   POSTY_PUBLISHING_PLATFORMS,
   type ParsedIngredoraMetadata,
+  type PlatformMetadata,
   type PublishingPlatform,
 } from '@/lib/ingredora-metadata'
 
@@ -298,7 +299,7 @@ export default function UploadPage() {
       setTagInput('')
       setError(null)
       setMetadataImportNotice(
-        'TXT importado. Los campos generales se completaron con @GLOBAL. La vista por red es de consulta en esta etapa; Posty todavía publica con los campos generales. La edición y el envío de copys independientes se incorporarán en la siguiente etapa.',
+        'TXT importado. Ahora podés editar el título, copy, hashtags y etiquetas de cada red. Los comentarios para fijar y textos alternativos también se guardan, aunque las APIs actuales todavía no publican esos dos campos.',
       )
     } catch (importError) {
       setMetadataImportError(
@@ -313,6 +314,23 @@ export default function UploadPage() {
     setMetadataImportError(null)
     setMetadataImportNotice(null)
     if (metadataInputRef.current) metadataInputRef.current.value = ''
+  }
+
+  function updatePlatformMetadata(field: keyof PlatformMetadata, value: string) {
+    setPlatformMetadata(current => {
+      if (!current) return current
+
+      return {
+        ...current,
+        platforms: {
+          ...current.platforms,
+          [activeMetadataPlatform]: {
+            ...current.platforms[activeMetadataPlatform],
+            [field]: value,
+          },
+        },
+      }
+    })
   }
 
   // Toggle todas las cuentas de un cliente (usa lista unificada)
@@ -392,7 +410,12 @@ export default function UploadPage() {
 
   async function handleSubmit() {
     if (!videoFile) return setError('Por favor selecciona un video.')
-    if (!title.trim()) return setError('El título es obligatorio.')
+    const hasImportedPlatformCopy = platformMetadata
+      ? Object.values(platformMetadata.platforms).some(copy => copy.title.trim() || copy.description.trim())
+      : false
+    if (!title.trim() && !hasImportedPlatformCopy) {
+      return setError('El título es obligatorio o debes importar metadatos de alguna plataforma.')
+    }
     
     if (privacy === 'Programado') {
       if (!scheduledFor) return setError('Por favor elige una fecha y hora para la publicación.')
@@ -468,7 +491,8 @@ export default function UploadPage() {
           tags,
           privacy,
           videoUrl: publicUrl,
-          scheduled_for: privacy === 'Programado' ? new Date(scheduledFor).toISOString() : undefined
+          scheduled_for: privacy === 'Programado' ? new Date(scheduledFor).toISOString() : undefined,
+          platform_metadata: platformMetadata ?? undefined
         })
       })
       clearInterval(interval)
@@ -810,20 +834,41 @@ export default function UploadPage() {
 
                 <div className="space-y-3">
                   {([
-                    ['Título', metadataPreview.title],
-                    ['Descripción', metadataPreview.description],
-                    ['Hashtags', metadataPreview.hashtags],
-                    ['Tags', metadataPreview.tags],
-                    ['Comentario para fijar', metadataPreview.pinnedComment],
-                    ['Texto alternativo', metadataPreview.altText],
-                  ] as const).map(([label, value]) => (
-                    <div key={label}>
-                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-[#6A7E94]">{label}</p>
-                      <p className="whitespace-pre-wrap break-words rounded-lg border border-[#334155]/70 bg-[#232B36] px-3 py-2 text-xs leading-relaxed text-[#DCE5EF]">
-                        {value || <span className="italic text-[#6A7E94]">Sin contenido en el TXT</span>}
-                      </p>
-                    </div>
+                    { key: 'title', label: 'Título', multiline: false, rows: 1 },
+                    { key: 'description', label: 'Descripción / copy', multiline: true, rows: 5 },
+                    { key: 'hashtags', label: 'Hashtags', multiline: true, rows: 2 },
+                    { key: 'tags', label: 'Etiquetas / tags', multiline: true, rows: 3 },
+                    { key: 'pinnedComment', label: 'Comentario para fijar', multiline: true, rows: 2 },
+                    { key: 'altText', label: 'Texto alternativo / accesibilidad', multiline: true, rows: 3 },
+                  ] as const).map(field => (
+                    <label key={field.key} className="block">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-[#6A7E94]">
+                        {field.label}
+                      </span>
+                      {field.multiline ? (
+                        <textarea
+                          value={metadataPreview[field.key]}
+                          onChange={event => updatePlatformMetadata(field.key, event.target.value)}
+                          rows={field.rows}
+                          disabled={isUploading}
+                          className="w-full rounded-lg border border-[#334155]/70 bg-[#232B36] px-3 py-2 text-xs leading-relaxed text-[#DCE5EF] placeholder-[#6A7E94] focus:border-[#1A6B8A] focus:outline-none focus:ring-1 focus:ring-[#1A6B8A] disabled:opacity-60"
+                          placeholder="Sin contenido en el TXT"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={metadataPreview[field.key]}
+                          onChange={event => updatePlatformMetadata(field.key, event.target.value)}
+                          disabled={isUploading}
+                          className="w-full rounded-lg border border-[#334155]/70 bg-[#232B36] px-3 py-2 text-xs text-[#DCE5EF] placeholder-[#6A7E94] focus:border-[#1A6B8A] focus:outline-none focus:ring-1 focus:ring-[#1A6B8A] disabled:opacity-60"
+                          placeholder="Sin título en el TXT"
+                        />
+                      )}
+                    </label>
                   ))}
+                  <p className="text-[11px] leading-relaxed text-[#6A7E94]">
+                    Los cambios se guardan con esta publicación. Las cuatro APIs utilizan el título, copy y hashtags propios de cada red. Comentario fijado y texto alternativo se conservan, pero todavía no se envían a las plataformas.
+                  </p>
                 </div>
 
                 {platformMetadata.warnings.map((warning, index) => (
