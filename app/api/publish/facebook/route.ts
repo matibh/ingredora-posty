@@ -91,18 +91,12 @@ export async function POST(request: Request) {
     const finalDescription = appendMetadataHashtags(platformMetadata.description, platformMetadata.hashtags);
 
     // 3. Upload to Facebook
-    let scheduledDate: Date | undefined = undefined;
-    if (job.scheduled_for) {
-      scheduledDate = new Date(job.scheduled_for);
-    }
-
     const result = await uploadToFacebook(
       accessToken,
       job.video_url,
       platformMetadata.title || '',
       finalDescription,
-      tokenData.platform_user_id,
-      scheduledDate
+      tokenData.platform_user_id
     );
 
     // 4. Update Job on Success
