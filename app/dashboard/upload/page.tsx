@@ -140,7 +140,7 @@ export default function UploadPage() {
           data.forEach(client => {
             console.log(`[upload] 🔍 Cliente ${client.name} (${client.id}):`)
             console.log(`[upload] 🔍   client_social_accounts:`, client.client_social_accounts)
-            console.log(`[upload] 🔍   social_tokens:`, (client as any).social_tokens)
+            console.log(`[upload] 🔍   social_tokens:`, client.social_tokens)
             // Lógica aplazada porque getClientAccounts aún no está en scope, lo vemos abajo
           })
           if (data.length === 0) {
@@ -992,9 +992,9 @@ export default function UploadPage() {
                   onClick={(e) => {
                     try {
                       if ('showPicker' in HTMLInputElement.prototype) {
-                        (e.currentTarget as any).showPicker()
+                        e.currentTarget.showPicker()
                       }
-                    } catch (err) {
+                    } catch {
                       // fallback for older browsers
                     }
                   }}
@@ -1010,7 +1010,7 @@ export default function UploadPage() {
                   }}
                 />
                 <p className="text-xs text-[#A8B8C8] mt-1.5">
-                  El video se subirá a YouTube como "Privado" y pasará a "Público" en la fecha indicada.
+                  El video se subirá a YouTube como &quot;Privado&quot; y pasará a &quot;Público&quot; en la fecha indicada.
                 </p>
               </div>
             )}
