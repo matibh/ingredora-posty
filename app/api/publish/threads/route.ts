@@ -93,7 +93,8 @@ export async function POST(request: Request) {
       accessToken,
       job.video_url,
       finalText,
-      tokenData.platform_user_id
+      tokenData.platform_user_id,
+      platformMetadata.altText,
     );
 
     // 4. Update Job on Success
