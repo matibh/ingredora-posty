@@ -45,7 +45,8 @@ export async function uploadToInstagram(
   accessToken: string,
   videoUrl: string,
   caption: string,
-  igUserId: string
+  igUserId: string,
+  altText = '',
 ): Promise<{ id: string; permalink: string }> {
   console.log('[instagram] 🚀 Iniciando publicación en Instagram');
   console.log('[instagram] 📹 Video URL:', videoUrl);
@@ -60,6 +61,7 @@ export async function uploadToInstagram(
       caption: caption,
       share_to_feed: 'true',
     });
+    if (altText.trim()) createBody.set('alt_text', altText.trim());
 
     console.log('[instagram] 📦 Creando contenedor de media...');
     const createResponse = await fetch(`https://graph.instagram.com/v22.0/${igUserId}/media`, {
