@@ -1,3 +1,14 @@
+export const INGREDORA_TEMPLATE_PLATFORMS = [
+  { id: 'youtube', label: 'YouTube' },
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'tiktok', label: 'TikTok' },
+  { id: 'facebook', label: 'Facebook' },
+  { id: 'x', label: 'X' },
+  { id: 'threads', label: 'Threads' },
+] as const
+
+// Posty's active publishing integrations. TikTok and X metadata are imported
+// and retained, but those destinations are not published by the current app.
 export const POSTY_PUBLISHING_PLATFORMS = [
   { id: 'youtube', label: 'YouTube' },
   { id: 'instagram', label: 'Instagram' },
@@ -6,6 +17,7 @@ export const POSTY_PUBLISHING_PLATFORMS = [
 ] as const
 
 export type PublishingPlatform = (typeof POSTY_PUBLISHING_PLATFORMS)[number]['id']
+export type MetadataPlatform = (typeof INGREDORA_TEMPLATE_PLATFORMS)[number]['id']
 
 export interface PlatformMetadata {
   title: string
@@ -19,8 +31,8 @@ export interface PlatformMetadata {
 export interface ParsedIngredoraMetadata {
   version: 'INGREDORA_PUBLISHING_TEMPLATE_V1'
   global: PlatformMetadata
-  platforms: Record<PublishingPlatform, PlatformMetadata>
-  hasPlatformBlock: Record<PublishingPlatform, boolean>
+  platforms: Record<MetadataPlatform, PlatformMetadata>
+  hasPlatformBlock: Record<MetadataPlatform, boolean>
   warnings: string[]
 }
 
@@ -140,10 +152,10 @@ export function parseIngredoraMetadata(input: string): ParsedIngredoraMetadata {
   }
 
   const global = toMetadata(blocks.global)
-  const platforms = {} as Record<PublishingPlatform, PlatformMetadata>
-  const hasPlatformBlock = {} as Record<PublishingPlatform, boolean>
+  const platforms = {} as Record<MetadataPlatform, PlatformMetadata>
+  const hasPlatformBlock = {} as Record<MetadataPlatform, boolean>
 
-  for (const platform of POSTY_PUBLISHING_PLATFORMS) {
+  for (const platform of INGREDORA_TEMPLATE_PLATFORMS) {
     const platformBlock = blocks[platform.id]
     hasPlatformBlock[platform.id] = !!platformBlock
     platforms[platform.id] = toMetadata({
