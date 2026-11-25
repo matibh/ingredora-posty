@@ -19,12 +19,15 @@ export async function POST(request: Request) {
     console.log('[publish/instagram] 🚀 Iniciando publicación. jobId:', jobId, 'clientId:', clientId);
 
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     
     // 1. Get Job
     const { data: job, error: jobError } = await supabase
       .from('jobs')
       .select('*')
       .eq('id', jobId)
+      .eq('user_id', user.id)
       .single();
 
     if (jobError || !job) {
@@ -42,6 +45,7 @@ export async function POST(request: Request) {
     const { data: tokenData, error: tokenError } = await supabase
       .from('social_tokens')
       .select('*')
+      .eq('user_id', user.id)
       .eq('client_id', clientId)
       .eq('platform', 'instagram')
       .maybeSingle();
