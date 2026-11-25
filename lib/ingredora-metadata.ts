@@ -34,15 +34,6 @@ export interface ParsedIngredoraMetadata {
 }
 
 const FIELDS = ['TITLE', 'DESCRIPTION', 'HASHTAGS'] as const
-const ALL_TEMPLATE_FIELDS = [
-  'TITLE',
-  'DESCRIPTION',
-  'HASHTAGS',
-  'TAGS',
-  'PINNED_COMMENT',
-  'ALT_TEXT',
-] as const
-
 type TemplateField = (typeof FIELDS)[number]
 type RawBlock = Partial<Record<TemplateField, string>>
 
