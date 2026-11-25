@@ -106,7 +106,7 @@ export async function POST(request: Request) {
     // 4. Update Job on Success
     const videoId = result.id;
     // La firma de uploadToInstagram la acabamos de actualizar para devolver permalink
-    const videoUrl = (result as any).permalink || `https://www.instagram.com/p/${videoId}`;
+    const videoUrl = result.permalink || `https://www.instagram.com/p/${videoId}`;
 
     console.log('[publish/instagram] 🆔 Video ID guardado:', videoId);
     console.log('[publish/instagram] 🔗 URL:', videoUrl);
@@ -129,8 +129,9 @@ export async function POST(request: Request) {
     console.log('[publish/instagram] ✅ Job actualizado a done. platform_video_id:', videoId);
     return NextResponse.json({ success: true, platform_video_id: videoId, videoUrl });
 
-  } catch (error: any) {
-    console.error('[publish/instagram] ❌ Error:', error.message);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al publicar en Instagram';
+    console.error('[publish/instagram] ❌ Error:', errorMessage);
 
     // Update job status to error
     if (jobId) {
@@ -138,13 +139,13 @@ export async function POST(request: Request) {
         const supabase = await createClient();
         await supabase.from('jobs').update({
           status: 'error',
-          error_message: error.message || 'Error desconocido al publicar en Instagram'
+          error_message: errorMessage
         }).eq('id', jobId);
       } catch (dbErr) {
         console.error('[publish/instagram] ❌ No se pudo actualizar el job a error:', dbErr);
       }
     }
 
-    return NextResponse.json({ error: error.message || 'Error desconocido' }, { status: 500 });
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
