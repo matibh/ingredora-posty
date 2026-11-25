@@ -279,8 +279,8 @@ export default function UploadPage() {
       const parsed = parseIngredoraMetadata(await file.text())
       setPlatformMetadata(parsed)
 
-      // Posty todavía publica con sus campos generales. Durante esta etapa,
-      // usamos @GLOBAL como base neutral para no aplicar el copy de una red a las demás.
+      // Keep @GLOBAL in the legacy job columns for compatibility and summaries.
+      // The platform-specific object below drives each publishing route.
       const youtube = parsed.platforms.youtube
       setTitle(parsed.global.title || youtube.title)
       setDescription(parsed.global.description || youtube.description)
