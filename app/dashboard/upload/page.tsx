@@ -882,6 +882,8 @@ export default function UploadPage() {
 
           {/* Metadatos del video */}
           <div className="border-t border-[#334155] pt-6 space-y-5">
+            {!platformMetadata && (
+              <>
             <div>
               <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Título <span className="text-red-500">*</span></label>
               <input
@@ -906,7 +908,14 @@ export default function UploadPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            </>)}
+            {platformMetadata && (
+              <p className="rounded-lg border border-[#334155] bg-[#181E26] px-3 py-2 text-xs leading-relaxed text-[#A8B8C8]">
+                Los copies se editan en los paneles de cada red de arriba. Los valores globales del TXT quedan como respaldo y no reemplazan los textos específicos.
+              </p>
+            )}
+            <div className={platformMetadata ? 'grid grid-cols-1 gap-5' : 'grid grid-cols-1 sm:grid-cols-2 gap-5'}>
+              {!platformMetadata && (
               <div>
                 <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Tags / Hashtags</label>
                 <div 
@@ -956,6 +965,7 @@ export default function UploadPage() {
                 </div>
               </div>
               
+              )}
               <div>
                 <label className="block text-sm font-bold text-[#F0F4F8] mb-1.5">Visibilidad</label>
                 <select
