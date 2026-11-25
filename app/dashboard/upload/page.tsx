@@ -9,10 +9,10 @@ import { SiPinterest, SiX, SiThreads } from 'react-icons/si'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   parseIngredoraMetadata,
-  POSTY_PUBLISHING_PLATFORMS,
+  INGREDORA_TEMPLATE_PLATFORMS,
   type ParsedIngredoraMetadata,
   type PlatformMetadata,
-  type PublishingPlatform,
+  type MetadataPlatform,
 } from '@/lib/ingredora-metadata'
 
 interface SocialAccount {
@@ -116,7 +116,7 @@ export default function UploadPage() {
   // Importación opcional de metadatos de Ingredora Content Studio.
   const [metadataFile, setMetadataFile] = useState<File | null>(null)
   const [platformMetadata, setPlatformMetadata] = useState<ParsedIngredoraMetadata | null>(null)
-  const [activeMetadataPlatform, setActiveMetadataPlatform] = useState<PublishingPlatform>('youtube')
+  const [activeMetadataPlatform, setActiveMetadataPlatform] = useState<MetadataPlatform>('youtube')
   const [metadataImportError, setMetadataImportError] = useState<string | null>(null)
   const [metadataImportNotice, setMetadataImportNotice] = useState<string | null>(null)
   const metadataInputRef = useRef<HTMLInputElement | null>(null)
@@ -285,7 +285,7 @@ export default function UploadPage() {
       setTagInput('')
       setError(null)
       setMetadataImportNotice(
-        'TXT importado. Ahora podés editar el título, copy, hashtags y etiquetas de cada red. Los comentarios para fijar y textos alternativos también se guardan, aunque las APIs actuales todavía no publican esos dos campos.',
+        'TXT importado. Se extrajeron los campos globales y los bloques de YouTube, Instagram, TikTok, Facebook y X. Threads usa @GLOBAL cuando no tiene un bloque propio. El comentario para fijar se guarda, pero no se publica automáticamente; el texto alternativo se utiliza en Instagram y Threads.',
       )
     } catch (importError) {
       setMetadataImportError(
@@ -802,7 +802,7 @@ export default function UploadPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {POSTY_PUBLISHING_PLATFORMS.map(platform => (
+                  {INGREDORA_TEMPLATE_PLATFORMS.map(platform => (
                     <button
                       key={platform.id}
                       type="button"
@@ -819,6 +819,9 @@ export default function UploadPage() {
                     </button>
                   ))}
                 </div>
+                <p className="text-[11px] leading-relaxed text-[#A8B8C8]">
+                  TikTok y X se importan y quedan guardados para cada publicación, pero Posty todavía no tiene integraciones de envío activas para esas dos redes. Los destinos actualmente habilitados son YouTube, Instagram, Facebook y Threads.
+                </p>
 
                 <div className="space-y-3">
                   {([
@@ -855,7 +858,7 @@ export default function UploadPage() {
                     </label>
                   ))}
                   <p className="text-[11px] leading-relaxed text-[#6A7E94]">
-                    Los cambios se guardan con esta publicación. Las cuatro APIs utilizan el título, copy y hashtags propios de cada red. Comentario fijado y texto alternativo se conservan, pero todavía no se envían a las plataformas.
+                    Los cambios se guardan con esta publicación. YouTube, Instagram, Facebook y Threads usan sus propios títulos, copies y hashtags. El comentario para fijar se conserva, pero no se publica automáticamente; el texto alternativo se utiliza en Instagram y Threads.
                   </p>
                 </div>
 
