@@ -241,8 +241,6 @@ export default function UploadPage() {
 
     const match = source.match(/^(Serie|Publicidad)\/([^/\\]+\.mp4)$/i)
     studioImportStartedRef.current = true
-    let cancelled = false
-
     async function importFromContentStudio() {
       try {
         if (!match || (match[1] !== 'Serie' && match[1] !== 'Publicidad')) {
@@ -274,8 +272,6 @@ export default function UploadPage() {
         const video = new File([videoBlob], videoName, { type: 'video/mp4' })
         const metadata = new File([txtBlob], baseName + '.txt', { type: 'text/plain' })
         const parsed = parseIngredoraMetadata(await metadata.text())
-        if (cancelled) return
-
         setVideoFile(video)
         setVideoPreview(URL.createObjectURL(video))
         setMetadataFile(metadata)
@@ -301,15 +297,12 @@ export default function UploadPage() {
         setMetadataImportNotice('✓ MP4 y TXT importados desde Content Studio. Revisá los metadatos y guardá el video en Posty; no se publicará en ninguna red.')
         window.history.replaceState({}, '', window.location.pathname)
       } catch (importError) {
-        if (!cancelled) {
-          setMetadataImportNotice(null)
-          setMetadataImportError(importError instanceof Error ? importError.message : 'No se pudo importar el capítulo desde Content Studio.')
-        }
+        setMetadataImportNotice(null)
+        setMetadataImportError(importError instanceof Error ? importError.message : 'No se pudo importar el capítulo desde Content Studio.')
       }
     }
 
     void importFromContentStudio()
-    return () => { cancelled = true }
   }, [])
 
   const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
