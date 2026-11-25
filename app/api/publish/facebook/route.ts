@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     const result = await uploadToFacebook(
       accessToken,
       job.video_url,
-      job.title || '',
+      platformMetadata.title || '',
       finalDescription,
       tokenData.platform_user_id,
       scheduledDate
