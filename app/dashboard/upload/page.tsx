@@ -7,6 +7,12 @@ import Link from 'next/link'
 import { FaYoutube, FaInstagram, FaFacebook, FaTiktok, FaLinkedin } from 'react-icons/fa'
 import { SiPinterest, SiX, SiThreads } from 'react-icons/si'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  parseIngredoraMetadata,
+  POSTY_PUBLISHING_PLATFORMS,
+  type ParsedIngredoraMetadata,
+  type PublishingPlatform,
+} from '@/lib/ingredora-metadata'
 
 interface SocialAccount {
   id: string
@@ -105,6 +111,14 @@ export default function UploadPage() {
   const [tagInput, setTagInput] = useState('')
   const [privacy, setPrivacy] = useState('Público')
   const [scheduledFor, setScheduledFor] = useState('')
+
+  // Importación opcional de metadatos de Ingredora Content Studio.
+  const [metadataFile, setMetadataFile] = useState<File | null>(null)
+  const [platformMetadata, setPlatformMetadata] = useState<ParsedIngredoraMetadata | null>(null)
+  const [activeMetadataPlatform, setActiveMetadataPlatform] = useState<PublishingPlatform>('youtube')
+  const [metadataImportError, setMetadataImportError] = useState<string | null>(null)
+  const [metadataImportNotice, setMetadataImportNotice] = useState<string | null>(null)
+  const metadataInputRef = useRef<HTMLInputElement | null>(null)
 
   // Clients & Accounts selection
   const [clients, setClients] = useState<Client[]>([])
@@ -241,6 +255,66 @@ export default function UploadPage() {
   const fmtSize = (b: number) =>
     b < 1024 * 1024 ? `${(b / 1024).toFixed(1)} KB` : `${(b / (1024 * 1024)).toFixed(1)} MB`
 
+  async function handleMetadataFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setMetadataFile(file)
+    setPlatformMetadata(null)
+    setMetadataImportError(null)
+    setMetadataImportNotice(null)
+
+    if (!/\.txt$/i.test(file.name)) {
+      setMetadataImportError('El archivo debe tener extensión .txt.')
+      return
+    }
+
+    if (file.size > 256 * 1024) {
+      setMetadataImportError('El TXT supera el límite de 256 KB.')
+      return
+    }
+
+    try {
+      const parsed = parseIngredoraMetadata(await file.text())
+      setPlatformMetadata(parsed)
+
+      // Posty todavía publica con sus campos generales. Durante esta etapa,
+      // usamos el copy de YouTube como valores iniciales compatibles.
+      const youtube = parsed.platforms.youtube
+      setTitle(youtube.title || parsed.global.title)
+      setDescription(youtube.description || parsed.global.description)
+
+      const sourceTags = youtube.tags || parsed.global.tags
+      const importedTags: string[] = []
+      let importedTagsLength = 0
+      for (const rawTag of sourceTags.split(/[,;\n]/)) {
+        const tag = rawTag.trim().replace(/^#/, '')
+        if (!tag || importedTags.includes(tag) || importedTags.length >= 30) continue
+        if (importedTagsLength + tag.length > 500) break
+        importedTags.push(tag)
+        importedTagsLength += tag.length
+      }
+      setTags(importedTags)
+      setTagInput('')
+      setError(null)
+      setMetadataImportNotice(
+        'TXT importado. Los campos generales se completaron con los datos de YouTube. En esta primera etapa, Posty todavía publica con esos campos generales; los textos particulares de cada red se conectarán en la siguiente etapa.',
+      )
+    } catch (importError) {
+      setMetadataImportError(
+        importError instanceof Error ? importError.message : 'No se pudo leer el TXT.',
+      )
+    }
+  }
+
+  function clearMetadataFile() {
+    setMetadataFile(null)
+    setPlatformMetadata(null)
+    setMetadataImportError(null)
+    setMetadataImportNotice(null)
+    if (metadataInputRef.current) metadataInputRef.current.value = ''
+  }
+
   // Toggle todas las cuentas de un cliente (usa lista unificada)
   const handleClientToggle = (client: Client) => {
     const all = getClientAccounts(client)
@@ -310,6 +384,11 @@ export default function UploadPage() {
   }
 
   const tagsLength = tags.reduce((acc, curr) => acc + curr.length, 0)
+  const metadataPreview = platformMetadata?.platforms[activeMetadataPlatform]
+  const metadataPlatformHasBlock = platformMetadata?.hasPlatformBlock[activeMetadataPlatform] ?? false
+  const metadataNamesMatch = !videoFile || !metadataFile ||
+    videoFile.name.replace(/\.[^.]+$/, '').trim().toLowerCase() ===
+    metadataFile.name.replace(/\.txt$/i, '').trim().toLowerCase()
 
   async function handleSubmit() {
     if (!videoFile) return setError('Por favor selecciona un video.')
@@ -641,6 +720,120 @@ export default function UploadPage() {
               </button>
             </div>
           )}
+
+          {/* Importación opcional del TXT de Ingredora Content Studio */}
+          <div className="border-t border-[#334155] pt-6 space-y-4">
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-1.5">
+                <label htmlFor="metadata-file-input" className="block text-sm font-bold text-[#F0F4F8]">
+                  TXT de metadatos de Ingredora <span className="text-xs font-medium text-[#A8B8C8]">(opcional)</span>
+                </label>
+                {metadataFile && (
+                  <button
+                    type="button"
+                    onClick={clearMetadataFile}
+                    disabled={isUploading}
+                    className="text-xs font-semibold text-[#F87171] hover:text-white disabled:opacity-50"
+                  >
+                    Quitar TXT
+                  </button>
+                )}
+              </div>
+              <input
+                ref={metadataInputRef}
+                id="metadata-file-input"
+                type="file"
+                accept=".txt,text/plain"
+                onChange={handleMetadataFileChange}
+                disabled={isUploading}
+                className="block w-full text-sm text-[#A8B8C8] file:mr-3 file:rounded-lg file:border-0 file:bg-[#1A6B8A] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[#237f9f] disabled:opacity-50"
+              />
+              <p className="mt-2 text-xs text-[#6A7E94]">
+                Seleccioná el TXT con el mismo nombre base que el MP4. Posty reconoce el formato INGREDORA_PUBLISHING_TEMPLATE_V1.
+              </p>
+              {metadataFile && (
+                <p className="mt-2 text-xs text-[#A8B8C8]">
+                  Archivo: <span className="font-semibold text-[#F0F4F8]">{metadataFile.name}</span>
+                </p>
+              )}
+              {metadataFile && videoFile && !metadataNamesMatch && (
+                <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                  El nombre base del TXT no coincide con el MP4 ({videoFile.name.replace(/\.[^.]+$/, '')}). Revisá que hayas elegido el archivo correcto.
+                </p>
+              )}
+              {metadataImportError && (
+                <p role="alert" className="mt-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                  {metadataImportError}
+                </p>
+              )}
+              {metadataImportNotice && (
+                <p role="status" className="mt-2 rounded-lg border border-[#1A6B8A]/50 bg-[#1A6B8A]/10 px-3 py-2 text-xs leading-relaxed text-[#B8E6F5]">
+                  {metadataImportNotice}
+                </p>
+              )}
+            </div>
+
+            {platformMetadata && metadataPreview && (
+              <div className="rounded-2xl border border-[#334155] bg-[#181E26] p-4 space-y-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#F0F4F8]">Vista previa de metadatos por red</h3>
+                    <p className="mt-1 text-xs text-[#A8B8C8]">
+                      {metadataPlatformHasBlock
+                        ? 'Datos de @GLOBAL + @' + activeMetadataPlatform.toUpperCase()
+                        : 'Datos heredados de @GLOBAL; el TXT no incluye un bloque propio para esta red.'}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[#334155] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#A8B8C8]">
+                    TXT V1
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {POSTY_PUBLISHING_PLATFORMS.map(platform => (
+                    <button
+                      key={platform.id}
+                      type="button"
+                      onClick={() => setActiveMetadataPlatform(platform.id)}
+                      aria-pressed={activeMetadataPlatform === platform.id}
+                      className={'flex items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold transition-colors ' + (
+                        activeMetadataPlatform === platform.id
+                          ? 'border-[#1A6B8A] bg-[#1A6B8A]/20 text-white'
+                          : 'border-[#334155] bg-[#232B36] text-[#A8B8C8] hover:border-[#1A6B8A]'
+                      )}
+                    >
+                      {PLATFORM_ICONS[platform.id]}
+                      {platform.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-3">
+                  {([
+                    ['Título', metadataPreview.title],
+                    ['Descripción', metadataPreview.description],
+                    ['Hashtags', metadataPreview.hashtags],
+                    ['Tags', metadataPreview.tags],
+                    ['Comentario para fijar', metadataPreview.pinnedComment],
+                    ['Texto alternativo', metadataPreview.altText],
+                  ] as const).map(([label, value]) => (
+                    <div key={label}>
+                      <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-[#6A7E94]">{label}</p>
+                      <p className="whitespace-pre-wrap break-words rounded-lg border border-[#334155]/70 bg-[#232B36] px-3 py-2 text-xs leading-relaxed text-[#DCE5EF]">
+                        {value || <span className="italic text-[#6A7E94]">Sin contenido en el TXT</span>}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {platformMetadata.warnings.map((warning, index) => (
+                  <p key={index} className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-200">
+                    {warning}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Metadatos del video */}
           <div className="border-t border-[#334155] pt-6 space-y-5">
