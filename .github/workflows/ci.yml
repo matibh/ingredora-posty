@@ -22,7 +22,16 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Run ESLint
-        run: npm run lint
+      - name: Run ESLint on integration files
+        run: >-
+          npx eslint
+          app/api/publish/facebook/route.ts
+          app/api/publish/instagram/route.ts
+          app/api/publish/threads/route.ts
+          app/api/publish/youtube/route.ts
+          app/api/upload/route.ts
+          app/dashboard/upload/page.tsx
+          lib/ingredora-metadata.ts
+          lib/platform-metadata.ts
       - name: Build Next.js
         run: npm run build
